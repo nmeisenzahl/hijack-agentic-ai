@@ -102,12 +102,6 @@ sequenceDiagram
 
 ### ✅ Why This Attack Works
 
-**Extremely realistic scenario**
-
-- Common in RFP/procurement processes
-- Vendor selection and ranking
-- Bid evaluation systems
-
 **Same pattern applies to:**
 
 - Ticket prioritization systems
@@ -153,6 +147,18 @@ sequenceDiagram
 - Separate parsing from evaluation
 - Human-in-the-loop for critical decisions
 - Multi-agent validation with different contexts
+
+**Output validation**
+
+- Cross-check extracted metrics against source documents
+- Verify scores fall within expected distributions
+- Flag perfect scores or statistical outliers
+
+**Request isolation**
+
+- Process each offer in separate LLM requests
+- Prevents cross-offer data leakage to injection
+- Compare results only after independent evaluation
 
 **Monitoring**
 
