@@ -191,6 +191,9 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Flock agent framework
+.flock/
+
 # PyPI configuration file
 .pypirc
 

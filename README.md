@@ -16,6 +16,8 @@ This project is for **educational purposes only**. The attacks demonstrated here
 
 ## Overview
 
+Start with these foundational resources to understand the security landscape of agentic AI systems and the key principles for protecting them:
+
 - [Introduction: Security in the Era of Agentic AI](docs/introduction.md)
 - [Securing Agentic AI: A Overview](docs/securing-agentic-ai.md)
 
@@ -30,3 +32,13 @@ As AI agents gain more autonomy and tool access, they introduce new attack surfa
 | [Demo 3 – RAG Poisoning](demos/demo3-rag-poisoning/README.md) | RAG Poisoning, where internal knowledge causes persistent data exfiltration | **LLM04** | Forecast + context exfiltrated → Persistent data exfiltration |
 
 Each demo includes a README with an overview, attack scenario, files, running instructions, attack flow, and key takeaways.
+
+## Key Takeaway
+
+These three demos prove:
+
+- **No "hacker magic"**
+- **No code exploits**
+- **Just text + trust + autonomy**
+
+👉 That's exactly what makes them **so dangerous—and so credible**.
