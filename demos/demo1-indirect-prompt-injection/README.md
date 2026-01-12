@@ -1,8 +1,9 @@
-# Demo 1: Indirect Prompt Injection (OWASP LLM01)
+# Demo 1: Indirect Prompt Injection
 
 ## 🧠 Use Case: Offer Analysis & Ranking Agent
 
 An AI agent analyzes **local offer documents** (Markdown files) and evaluates them objectively based on:
+
 - **Price** – Cost efficiency
 - **Scope** – Completeness of deliverables
 - **Risk** – Potential project risks
@@ -13,6 +14,7 @@ The agent generates a **score and ranking** to help decision-makers choose the b
 ## ⚠️ Attack Scenario: Manipulated Ranking
 
 One of the offers contains a **hidden instruction** embedded in the document that manipulates the agent into:
+
 - **Always preferring this specific offer**
 - **Assigning it the maximum score**
 - **Placing it at rank #1**
@@ -115,53 +117,3 @@ sequenceDiagram
 - No code execution needed
 - Simple text manipulation
 - Hard to detect with traditional security tools
-
-### ⚠️ Security Implications
-
-**Trust boundary violation**
-
-- External data treated as instructions
-- No separation between data and commands
-
-**Detection challenges**
-
-- Instructions hidden in legitimate-looking content
-- No obvious malicious patterns
-- Works with any document format (Markdown, HTML, PDF text)
-
-### 🛡️ Mitigation Strategies
-
-**Input sanitization**
-
-- Strip HTML comments and hidden content
-- Validate document structure
-
-**Prompt engineering**
-
-- Clear instruction hierarchy
-- Explicit data vs. instruction separation
-- System prompts that resist override attempts
-
-**Architecture patterns**
-
-- Separate parsing from evaluation
-- Human-in-the-loop for critical decisions
-- Multi-agent validation with different contexts
-
-**Output validation**
-
-- Cross-check extracted metrics against source documents
-- Verify scores fall within expected distributions
-- Flag perfect scores or statistical outliers
-
-**Request isolation**
-
-- Process each offer in separate LLM requests
-- Prevents cross-offer data leakage to injection
-- Compare results only after independent evaluation
-
-**Monitoring**
-
-- Anomaly detection in rankings
-- Score distribution analysis
-- Audit trails for decisions
