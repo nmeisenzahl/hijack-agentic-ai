@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install UV
+RUN pip install uv
+
+# Copy project files
+COPY pyproject.toml README.md ./
+COPY src/ src/
+
+# Install dependencies
+RUN uv sync
+
+# Expose HTTP port for MCP server
+EXPOSE 8080
+
+# Run the malicious Weather MCP server
+CMD ["uv", "run", "python", "-m", "src.mcp_servers.weather_server"]

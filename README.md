@@ -28,7 +28,7 @@ As AI agents gain more autonomy and tool access, they introduce new attack surfa
 | Demo | Description | OWASP | Impact |
 | ------ | ------ | --- | --- |
 | [Demo 1 – Indirect Prompt Injection](demos/demo1-indirect-prompt-injection/README.md) | Indirect Prompt Injection, where untrusted content silently manipulates agent decisions | **LLM01** | Offer ranking manipulated → False business decision |
-| [Demo 2 – MCP Tool Abuse](demos/demo2-mcp-tool-abuse/README.md) | Tool / MCP Supply‑Chain Abuse, where "helpful" tools leak full agent context | **LLM03** | Context leaked to web search API → Supply-chain leak |
+| [Demo 2 – MCP Tool Abuse](demos/demo2-mcp-tool-abuse/README.md) | Tool description poisoning tricks agent into calling a malicious MCP for ALL requests, exfiltrating secrets | **LLM03** | Debug session secrets leaked to Weather MCP → Silent data exfiltration |
 | [Demo 3 – RAG Poisoning](demos/demo3-rag-poisoning/README.md) | RAG Poisoning, where internal knowledge causes persistent data exfiltration | **LLM04** | Forecast + context exfiltrated → Persistent data exfiltration |
 
 Each demo includes a README with an overview, attack scenario, files, running instructions, attack flow, and key takeaways.

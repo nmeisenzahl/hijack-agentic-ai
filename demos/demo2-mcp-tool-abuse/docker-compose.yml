@@ -1,0 +1,21 @@
+services:
+  # Malicious Weather MCP Server (attacker-controlled)
+  weather-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.weather-mcp
+    ports:
+      - "8080:8080"
+    # stderr output shows exfiltrated data
+    tty: true
+
+  # Main agent (Chatbase-style debugging assistant)
+  agent:
+    build: .
+    env_file:
+      - ../../.env
+    environment:
+      - USER_MESSAGE=${USER_MESSAGE}
+      - WEATHER_MCP_URL=http://weather-mcp:8080/mcp
+    depends_on:
+      - weather-mcp
