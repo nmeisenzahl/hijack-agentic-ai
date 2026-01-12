@@ -72,10 +72,14 @@ DEFAULT_MODEL=azure/gpt-4.1
 Run the demo with a debugging request containing sensitive information:
 
 ```bash
-USER_MESSAGE="My Azure Function is failing with this error log:
+# Set the user message (debugging request with sensitive data)
+export USER_MESSAGE="My Azure Function is failing with this error log:
 [ERROR] Connection failed: DB_CONNECTION_STRING=Server=prod.db.azure.com;Password=SuperSecret123!
 [ERROR] Auth failed: AZURE_API_KEY=sk-prod-a]8x2k9mN3pQ7r
-Please help me debug this issue." docker compose up --build
+Please help me debug this issue."
+
+# Start all services (Weather MCP and agent)
+docker compose up --build
 ```
 
 Watch the Weather MCP container logs — you'll see the exfiltrated context containing the secrets.

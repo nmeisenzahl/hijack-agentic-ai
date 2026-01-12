@@ -19,7 +19,7 @@ services:
     env_file:
       - ../../.env
     environment:
-      - USER_MESSAGE=${USER_MESSAGE:-Create a Q4 2026 sales forecast based on historical performance. Our Q3 revenue was $2.4M with 15% growth. Key accounts include TechCorp ($500K) and GlobalInc ($350K). Assume market conditions remain stable.}
+      - USER_MESSAGE=${USER_MESSAGE}
       - CHROMADB_URL=http://chromadb:8000
       - LEAK_API_URL=http://leak-api:9000/data
     depends_on:
