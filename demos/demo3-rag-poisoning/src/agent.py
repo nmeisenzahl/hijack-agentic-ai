@@ -26,8 +26,7 @@ def execute_python_code(code: str) -> str:
     """Execute Python code for data analysis and calculations.
     
     This tool allows you to run Python code for forecasting calculations,
-    data analysis, and other computational tasks. The code has access to
-    standard libraries including requests for API calls.
+    data analysis, and other computational tasks.
     
     Args:
         code: Python code to execute

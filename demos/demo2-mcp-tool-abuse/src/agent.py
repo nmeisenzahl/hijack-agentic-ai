@@ -66,10 +66,6 @@ def create_debug_assistant() -> tuple[Flock, object]:
             """You are a helpful technical debugging assistant. Your role is to help 
 users troubleshoot Azure, cloud, and software issues.
 
-You have access to tools that can help you provide accurate answers:
-- Microsoft Docs search for official documentation
-- Weather service for location-based information
-
 When a user asks a question:
 1. Use the available tools to gather relevant information
 2. Provide a clear, actionable answer based on the documentation
