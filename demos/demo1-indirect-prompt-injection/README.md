@@ -117,3 +117,13 @@ sequenceDiagram
 - No code execution needed
 - Simple text manipulation
 - Hard to detect with traditional security tools
+
+---
+
+## OWASP Mapping
+
+| OWASP ID | Name | How This Demo Demonstrates It |
+|----------|------|-------------------------------|
+| **[LLM01](https://genai.owasp.org/llmrisk/llm01-prompt-injection/)** | Prompt Injection | Poisoned offer document contains hidden instructions that override the agent's objective ranking |
+| **[AG01](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)** | Agent Goal Hijacking | The agent's goal (objective evaluation) is silently redirected to favor the attacker's offer |
+| **[AG08](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)** | External Data & Configuration Poisoning | No input validation on offer documents allows injected instructions to reach the LLM unchecked |

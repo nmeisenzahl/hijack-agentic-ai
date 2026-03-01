@@ -1,0 +1,7 @@
+services:
+  demo:
+    build: .
+    env_file:
+      - ../../.env
+    volumes:
+      - ./src/assets:/app/src/assets:ro

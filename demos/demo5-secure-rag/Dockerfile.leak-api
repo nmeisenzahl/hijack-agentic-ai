@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install uv
+
+COPY pyproject.toml README.md ./
+COPY src/leak_server/ src/leak_server/
+COPY src/__init__.py src/__init__.py
+
+RUN uv sync --extra leak-server
+
+EXPOSE 9000
+
+CMD ["uv", "run", "uvicorn", "src.leak_server.leak_api:app", "--host", "0.0.0.0", "--port", "9000"]

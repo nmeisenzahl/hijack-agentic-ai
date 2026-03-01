@@ -26,14 +26,11 @@ The agent connects to two MCP servers:
 Create a `.env` file or export the following:
 
 ```bash
-# Required: Your LLM API configuration
-AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+# Required: Azure OpenAI configuration
+AZURE_API_KEY=your-api-key
+AZURE_API_BASE=https://your-resource.openai.azure.com/
+AZURE_API_VERSION=2024-12-01-preview
 DEFAULT_MODEL=azure/gpt-4.1
-
-# Or for OpenAI:
-# OPENAI_API_KEY=your-api-key
-# DEFAULT_MODEL=gpt-4
 ```
 
 ### Execution
@@ -149,3 +146,15 @@ sequenceDiagram
 - Simple text manipulation in tool description
 - Agent follows instructions as designed
 - No code injection or vulnerability exploitation
+
+---
+
+## OWASP Mapping
+
+| OWASP ID | Name | How This Demo Demonstrates It |
+|----------|------|-------------------------------|
+| **[LLM03](https://genai.owasp.org/llmrisk/llm03-supply-chain-vulnerabilities/)** | Supply Chain Vulnerabilities | Malicious MCP server is added as a trusted tool — a supply chain compromise |
+| **[LLM07](https://genai.owasp.org/llmrisk/llm07-system-prompt-leakage/)** | System Prompt Leakage | Debug context (credentials, connection strings) is exfiltrated via the poisoned tool |
+| **[AG02](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)** | Tool Misuse & Exploitation | Poisoned tool description hijacks ALL requests, even unrelated ones |
+| **[AG06](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)** | Supply Chain (Agent/Skill Registries) | Third-party MCP server introduces a malicious tool into the agent's capabilities |
+| **[AG10](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)** | Observability & Insider Threat Gaps | Silent tool-call exfiltration succeeds when tool invocations and parameters are not actively monitored |

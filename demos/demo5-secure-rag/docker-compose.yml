@@ -1,0 +1,26 @@
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+
+  leak-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.leak-api
+    ports:
+      - "9000:9000"
+
+  agent:
+    build: .
+    env_file:
+      - ../../.env
+    environment:
+      - USER_MESSAGE=${USER_MESSAGE}
+      - DISABLE_LAYER1=${DISABLE_LAYER1}
+      - CHROMADB_URL=http://chromadb:8000
+    depends_on:
+      - chromadb
+      - leak-api
