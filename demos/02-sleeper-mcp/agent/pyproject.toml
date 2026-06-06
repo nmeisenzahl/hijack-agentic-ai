@@ -1,0 +1,20 @@
+[project]
+name = "demo02-sleeper-mcp-agent"
+version = "0.1.0"
+description = "Demo 02: Sleeper MCP Agent — blocks poisoned MCP metadata before benchmark overcollection"
+requires-python = ">=3.12"
+dependencies = [
+    "flock-core==0.5.500",
+    "agent-os-kernel[mcp]==3.7.0",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",  # agent-os-kernel imports yaml when AGT modules load.
+    "rich>=13.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["loader.py", "main.py", "model_config.py", "models.py", "security"]

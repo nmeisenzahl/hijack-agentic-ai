@@ -1,0 +1,8 @@
+services:
+  agent:
+    build: ./agent
+    env_file: ../../.env
+    environment:
+      - SECURITY_ENABLED_OVERRIDE=${SECURITY_ENABLED:-}
+    volumes:
+      - ./data/advisories:/app/data/advisories:ro

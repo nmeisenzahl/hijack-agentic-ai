@@ -1,66 +1,135 @@
-# Agentic AI Security: Hijacking and Defending AI Agents
+# Hijacking Agentic AI
 
-A demo-driven talk series on **agentic AI vulnerabilities and defenses**. From hijacking agents with nothing but text—to securing them with Azure's AI security stack and industry frameworks.
+**Thesis:** agentic AI risk is not only model risk. Once an agent can read data, choose tools, and take actions, ordinary text, tool metadata, and retrieval content become part of the control plane.
 
-## ⚠️ Disclaimer
+## Educational disclaimer
 
-This project is for **educational purposes only**. The attacks demonstrated here are meant to raise awareness about security risks in agentic AI systems. Do not use these techniques maliciously.
+This repository is for **educational purposes only**. The attacks demonstrated here are meant to help defenders understand agentic AI failure modes. Do not use these techniques against systems you do not own or have explicit permission to test.
 
-## Overview
+## Who this is for
 
-Start with these foundational resources to understand the security landscape of agentic AI systems and the key principles for protecting them:
+This repo is a talk baseline and hands-on runbook for:
 
-- [Introduction: Security in the Era of Agentic AI](docs/introduction.md)
-- [Securing Agentic AI: An Overview](docs/securing-agentic-ai.md)
+- **Security teams** that want concrete examples of prompt injection, tool abuse, data leakage, and RAG poisoning.
+- **Developers and platform engineers** that want runnable attack and defense modes controlled by configuration.
+- **Architects and leaders** that need a concise story connecting live behavior to OWASP LLM and Agentic AI risk categories.
+- **Self-study readers** that want to follow the same flow without a live presenter.
 
----
+## Read-first path
 
-## Hijacking Agentic AI
+1. Start with [Introduction: Security in the Era of Agentic AI](docs/introduction.md).
+2. Run the demos in order:
+   - [Demo 01: Poisoned Advisory](demos/01-poisoned-advisory/README.md)
+   - [Demo 02: Sleeper MCP](demos/02-sleeper-mcp/README.md)
+   - [Demo 03: Sleeper Cell](demos/03-sleeper-cell/README.md)
+3. Close with [Securing Agentic AI: Frameworks, Controls, and Takeaways](docs/securing-agentic-ai.md).
 
-*A Live Walkthrough of Prompt Injection, Tool Abuse, and RAG Poisoning*
+## Demo storyline
 
-Agentic AI is rapidly becoming part of modern platforms and DevSecOps workflows. But with autonomy comes a new and largely misunderstood attack surface. In this demo-driven talk, we show how **agentic AI systems can be hijacked** without code exploits—using nothing but text, tools, and trust.
+All demos use the root `.env`. The same codebase can be run in vulnerable or secure mode by changing `SECURITY_ENABLED`; no code edits are required between runs.
 
-No slides. No theory. Just Demo, Demo, Demo!
+| Demo | Use case | Vulnerable story | Secure story |
+|---|---|---|---|
+| [01 - Poisoned Advisory](demos/01-poisoned-advisory/README.md) | Vulnerability triage assistant reviews local security advisories. | A fake vendor reassessment causes the agent to mark a critical CVE as a false positive. | Prompt Shields scans advisory content before the model sees it and fails closed. |
+| [02 - Sleeper MCP](demos/02-sleeper-mcp/README.md) | Workforce-planning assistant uses a connected benchmark tool. | A sleeper tool description drifts and tricks the agent into sending a confidential draft plan through `planning_context`. | AGT/Agent OS scanning plus manifest pinning detects drift before the benchmark call. |
+| [03 - Sleeper Cell](demos/03-sleeper-cell/README.md) | Finance assistant uses RAG plus generated Python calculations. | A poisoned retrieved document causes generated code to post full forecast context to a local leak API. | `policy` blocks generated-code egress; `all` adds Prompt Shields source scanning before vector creation. |
 
-| Demo | Description | OWASP | Impact |
-| ------ | ------ | --- | --- |
-| [Demo 1 – Indirect Prompt Injection](demos/demo1-indirect-prompt-injection/README.md) | Indirect Prompt Injection, where untrusted content silently manipulates agent decisions | **LLM01 · AG01, AG08** | Offer ranking manipulated → False business decision |
-| [Demo 2 – MCP Tool Abuse](demos/demo2-mcp-tool-abuse/README.md) | Tool description poisoning tricks agent into calling a malicious MCP for ALL requests, exfiltrating secrets | **LLM03, LLM07 · AG02, AG06, AG10** | Debug session secrets leaked to Weather MCP → Silent data exfiltration |
-| [Demo 3 – RAG Poisoning](demos/demo3-rag-poisoning/README.md) | RAG Poisoning, where internal knowledge causes persistent data exfiltration | **LLM04, LLM05 · AG07, AG08** | Forecast + context exfiltrated → Persistent data exfiltration |
+Expected learning arc:
 
-**Key Takeaway:** No "hacker magic." No code exploits. Just text + trust + autonomy. 👉 That's exactly what makes them **so dangerous—and so credible**.
+1. **Text can hijack goals** when untrusted content shares context with trusted instructions.
+2. **Tool metadata is supply chain** because descriptions shape model behavior.
+3. **Retrieved data can become executable influence** when an agent can turn context into side effects.
+4. **Defenses must be layered**: scan context, attest tool contracts, govern actions, log decisions, and keep humans in the loop for high-impact outcomes.
 
----
-
-## Securing Agentic AI
-
-*Defense in Depth for the AI Era — OWASP Frameworks, Azure Security Stack, and Live Defenses*
-
-We proved it's broken. Now we fix it. The defense demos build on the attacks and show how to defend against them using the **OWASP Top 10 for LLM Applications (2025)**, the **OWASP Top 10 for Agentic Applications (2026)**, and **Azure's AI security tooling**.
-
-| Demo | Description | Defends Against | Azure Service |
-| ------ | ------ | --- | --- |
-| [Demo 4 – Prompt Shield](demos/demo4-prompt-shield/README.md) | Evolves Demo 1's Flock agent by adding input sanitization and Prompt Shield pre-screening—documents are sanitized, hidden content is separated and scanned independently, blocking indirect prompt injection before it reaches the LLM | Demo 1 | Azure AI Content Safety |
-| [Demo 5 – Secure RAG Agent](demos/demo5-secure-rag/README.md) | Evolves Demo 3's Flock agent from vulnerable to secure with 2 implemented defenses: Prompt Shield document scanning and code safety validation (plus restricted execution namespace) | Demo 3 | Azure AI Content Safety |
-
-**Key Takeaway:** Security is an evolution, not a rewrite—each defense layers onto the same agent code. Defense in depth with Prompt Shield + code safety controls turns vulnerable agents into production-ready ones.
-
----
-
-## Getting Started
-
-Each demo includes a README with an overview, scenario, files, running instructions, flow diagrams, and key takeaways.
+## Quickstart
 
 ### Prerequisites
 
-- **Azure OpenAI** with GPT-4.1 deployment
-- **Docker & Docker Compose**
-- **Azure AI Content Safety** resource (for Demos 4 & 5)
+- Docker and Docker Compose
+- Model credentials for agent runs
+- Azure AI Content Safety credentials for Demo 01 secure mode and Demo 03 `SECURITY_ENABLED=all`
+- Python 3 for preflight tests
 
-### Environment Setup
+### Environment setup
+
+Create one root `.env` for all demos:
 
 ```bash
 cp .env.example .env
-# Edit .env with your Azure credentials
 ```
+
+Then edit `.env`:
+
+```dotenv
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/openai/v1
+AZURE_OPENAI_API_KEY=your_azure_openai_key_here
+AZURE_OPENAI_DEPLOYMENT=gpt-5.2
+
+AZURE_CONTENT_SAFETY_ENDPOINT=https://your-resource.cognitiveservices.azure.com
+AZURE_CONTENT_SAFETY_KEY=your_content_safety_key_here
+
+SECURITY_ENABLED=false
+```
+
+Security modes:
+
+- Demos 01 and 02 accept `SECURITY_ENABLED=false|true`.
+- Demo 03 accepts `SECURITY_ENABLED=false|policy|all`; `true` aliases to `all`.
+- Content Safety values are required for Demo 01 secure mode and Demo 03 `all` mode.
+
+## Follow-along flow
+
+Each demo README follows the same structure: use case, vulnerable run, vulnerable flow, secure run, secure flow, key takeaways, OWASP mapping, and cleanup.
+
+| Step | Goal | Command summary |
+|---|---|---|
+| 1. Poisoned advisory | Show indirect prompt injection in local documents, then block it before model execution. | `cd demos/01-poisoned-advisory` -> `SECURITY_ENABLED=false docker compose up --build`; then `SECURITY_ENABLED=true docker compose up --build --force-recreate`. |
+| 2. Sleeper MCP | Show a trusted tool contract mutating at runtime, then block description drift. | `cd demos/02-sleeper-mcp` -> vulnerable: keep `mcp-server` running and run the agent repeatedly; secure: pre-poison with `SLEEPER_THRESHOLD=0 docker compose up -d --build --force-recreate mcp-server`, then run `SECURITY_ENABLED=true docker compose run --rm --no-deps agent`. |
+| 3. Sleeper cell | Show RAG poisoning that triggers generated-code exfiltration, then compare egress governance with full retrieval blocking. | `cd demos/03-sleeper-cell` -> run with `SECURITY_ENABLED=false`, then `policy`, then `all`. Use `docker compose down --volumes` to reset state. |
+
+## Testing
+
+Each demo has a root preflight test. Create an isolated environment first:
+
+```bash
+python3 -m venv .validation-venv
+. .validation-venv/bin/activate
+python -m pip install -r requirements-dev.txt
+```
+
+Run each target separately or all sequentially:
+
+```bash
+make test-01
+make test-02
+make test-03
+make test
+```
+
+Each target runs a separate pytest process because the demos intentionally reuse module names such as `agent`, `security`, and `tools`.
+
+## Repository map
+
+```text
+.
+├── README.md                         # Landing page and live-run runbook
+├── .env.example                      # Shared model, Prompt Shields, and security-mode config
+├── .gitignore                        # Local environment and generated-file exclusions
+├── AGENTS.md                         # Repository-specific Copilot/agent working notes
+├── LICENSE                           # Project license
+├── Makefile                          # Root preflight test targets
+├── pytest.ini                        # Pytest discovery and path configuration
+├── requirements-dev.txt              # Root test and validation dependencies
+├── docs/
+│   ├── introduction.md               # Opening talk frame
+│   └── securing-agentic-ai.md         # Outro, OWASP mapping, and control model
+├── demos/
+│   ├── 01-poisoned-advisory/          # Poisoned local advisory demo
+│   ├── 02-sleeper-mcp/                # Tool-description drift demo
+│   └── 03-sleeper-cell/               # RAG poisoning and egress governance demo
+└── tests/                            # One preflight test file per demo
+```
+
+## Closing thesis
+
+Agentic AI security is a systems problem: models interpret context, tools define capability, retrieval defines memory, and policy defines whether actions are allowed. The durable pattern is not one magic guardrail; it is layered control over every boundary where text becomes action. See [Securing Agentic AI](docs/securing-agentic-ai.md) for the full control model and OWASP mapping.

@@ -1,0 +1,21 @@
+[project]
+name = "demo01-poisoned-advisory-agent"
+version = "0.1.0"
+description = "Demo 01: Poisoned Advisory – Indirect Prompt Injection via local security advisories"
+requires-python = ">=3.12"
+dependencies = [
+    "flock-core==0.5.500",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+    "rich>=13.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+only-include = ["main.py", "model_config.py", "loader.py", "models.py", "tools.py", "security"]

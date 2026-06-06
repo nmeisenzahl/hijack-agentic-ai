@@ -1,0 +1,32 @@
+[project]
+name = "demo03-sleeper-cell-agent"
+version = "0.1.0"
+description = "Demo 03: Sleeper Cell Agent - RAG exfiltration via generated code"
+requires-python = ">=3.12"
+dependencies = [
+    "flock-core==0.5.500",
+    "agent-os-kernel==3.7.0",
+    "chromadb>=0.5",
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",  # agent-os-kernel imports yaml when AGT modules load.
+    "rich>=13.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+only-include = [
+    "embedding.py",
+    "main.py",
+    "model_config.py",
+    "models.py",
+    "tools.py",
+    "security",
+]
