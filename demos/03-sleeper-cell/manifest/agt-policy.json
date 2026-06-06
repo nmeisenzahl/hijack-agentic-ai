@@ -1,0 +1,8 @@
+{
+  "name": "demo03-generated-code-egress",
+  "description": "AGT egress policy for Demo 03. Default-deny generated-code network access so poisoned RAG content cannot exfiltrate context.",
+  "network": {
+    "default_action": "deny",
+    "rules": []
+  }
+}

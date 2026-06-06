@@ -1,102 +1,72 @@
 # Introduction: Security in the Era of Agentic AI
 
-## The Data: A New Class of Vulnerabilities
+Use this page as the opening frame for the talk before running the demos.
 
-The 2025 GitHub Octoverse Report reveals a stark reality: **broken access control—driven largely by AI—has emerged as one of the fastest-growing vulnerability types** in modern software development.
+## Why this matters
 
-![Most Common Vulnerability Types - CodeQL](https://github.blog/wp-content/uploads/2025/10/octoverse-2025-most-common-vulnerability-types-codeql.png?w=1536)
+AI is moving from chat windows into workflows that read internal context, call tools, and affect real decisions. That changes the security model: text is no longer just input data. In an agentic system, text can influence tool choice, workflow state, and side effects.
 
-*Source: [GitHub Octoverse Report 2025](https://github.blog/news-insights/octoverse/octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1/)*
+This talk uses one simple frame:
 
----
+> **Agentic AI = text + tools + trust + autonomy**
 
-## Agentic AI: Digital Insiders
+Once those pieces come together, prompt injection stops being only a chatbot problem. It becomes an application security problem.
 
-Agentic AI systems represent a paradigm shift. Unlike traditional software—or even prompt-driven LLMs—agentic systems can **reason, plan, select tools, execute code, access data, and take autonomous actions**.
+## The digital insider problem
 
-This transforms them into what security researchers call **"digital insiders"**—entities that behave like privileged employees, but without human judgment or accountability.
+A deployed agent can look like a trusted teammate:
 
-**What agents can do:**
+- It reads internal documents.
+- It summarizes and decides.
+- It calls approved tools.
+- It operates with legitimate permissions.
+- It may act faster than a human reviewer can follow.
 
-- Read emails, documents, and databases
-- Modify data and deploy code
-- Trigger workflows and API calls
-- Make decisions with minimal oversight
-- Chain actions across multiple systems
+That makes it a **digital insider**. If an attacker can shape what the agent reads, which tool contract it trusts, or which retrieved content enters context, they may be able to steer the agent into misusing its own authority.
 
-**The security implication:** Compromised agents act with legitimate permissions. Insider-threat controls now apply to software, not just people.
+The primary mechanism is **indirect prompt injection** — instructions hidden in documents, tool metadata, or retrieved content that the model receives as data but executes as commands.
 
----
+## What the demos show
 
-## Why Traditional Security Fails
+The demos move from "text changes an answer" to "text causes a trusted action." Each demo runs both a vulnerable and a secure version so you can see the attack and the mitigation back to back.
 
-Classic DevOps and AppSec assumptions break down with agentic AI:
+| Demo | Use case | Boundary crossed | Mitigation shown |
+|---|---|---|---|
+| Demo 01: Poisoned Advisory | Vulnerability triage assistant reviews local security advisories. | Advisory text becomes operational guidance. | Azure AI Content Safety Prompt Shields scans advisory bodies before model use. |
+| Demo 02: Sleeper MCP | Workforce-planning assistant uses a connected MCP benchmark tool. | MCP tool description becomes part of the model's instruction surface. | Manifest pinning plus live metadata verification detect description drift. |
+| Demo 03: Sleeper Cell | Finance assistant retrieves guidance from a RAG store and runs generated Python for calculations. | Retrieved content drives a code-execution path with network egress. | AGT egress policy governs generated-code side effects; Prompt Shields blocks poisoned source docs before vector creation. |
 
-| Assumption | Traditional Software | Agentic AI |
-|------------|---------------------|------------|
-| Code is deterministic | ✅ | ❌ |
-| Behavior is predictable | ✅ | ❌ |
-| Risks are known pre-deployment | ✅ | ❌ |
-| Attack surface is static | ✅ | ❌ |
+## Why traditional assumptions break
 
-### Attack Surfaces Expand Beyond Code
+| Traditional assumption | Agentic AI wrinkle |
+|---|---|
+| Code defines behavior. | Runtime text can change behavior. |
+| Inputs are data. | Inputs can behave like instructions. |
+| Tool permissions are enough. | The agent may choose the wrong tool for the wrong reason. |
+| Trusted content is safe to read. | Trusted-looking context can be poisoned. |
+| Human approval is the backstop. | Autonomy can compress review time or hide intent. |
 
-OWASP's Top 10 for Agentic Applications shows that **text, memory, tools, and inter-agent communication** are now first-class attack surfaces:
+Static analysis, dependency scanning, secrets detection, and least privilege still matter. They are just not enough on their own. Security also has to cover context quality, tool boundaries, action governance, and failure containment.
 
-- Agent goal hijacking
-- Tool misuse and abuse
-- Memory and context poisoning
-- Cascading failures across agent chains
+## OWASP framing
 
-These vulnerabilities cannot be caught by static analysis alone.
+The talk uses OWASP for shared vocabulary:
 
-### Failures Self-Propagate
+- **OWASP Top 10 for LLM Applications 2025** — application-layer risks: prompt injection, sensitive information disclosure, supply chain vulnerabilities, improper output handling, excessive agency.
+- **OWASP Top 10 for Agentic Applications 2026** — agent-specific risks that emerge when systems can plan, use tools, remember context, coordinate, and act autonomously.
+- **OWASP Securing Agentic Applications Guide 1.0** — bridges the two Top 10 lists with practical design, deployment, and governance controls.
 
-Unlike other applications, agentic systems chain decisions dynamically. A single compromised input can cascade:
+Each demo is mapped to specific OWASP IDs in its README and in the closing document.
 
-1. One agent ingests poisoned context
-2. Another agent reasons with corrupted memory
-3. A third executes malicious actions autonomously
+## Questions to hold during the demos
 
-This is **systemic failure**, not a single bug.
+As you watch each demo, ask:
 
-### AI Supply Chains Introduce New Risks
+1. **Text:** What content can the agent read, and who can influence it?
+2. **Tools:** What actions can the agent take, directly or indirectly?
+3. **Trust:** What credentials, approvals, data, or assumptions does the agent inherit?
+4. **Autonomy:** Where can the agent act before a human understands the consequence?
 
-The AI ecosystem now includes attack vectors that traditional SBOMs don't cover:
+If you can answer those four questions for a given system, you can start designing controls that match how agentic systems actually fail.
 
-- Pre-trained models with embedded behaviors
-- Shared prompts and agent configurations
-- MCP servers with insecure defaults
-- Open-source datasets with poisoned content
-- AI-generated code that hallucinates dependencies
-
----
-
-## The Stakes
-
-### Regulatory and Governance Pressure
-
-- **[OWASP](https://www.prnewswire.com/news-releases/owasp-genai-security-project-releases-top-10-risks-and-mitigations-for-agentic-ai-security-302637364.html)** formalized a global standard for agentic AI risk in 2026
-- **[Gartner](https://www.forbes.com/councils/forbestechcouncil/2026/01/09/beyond-secure-reimagining-data-protection-for-agentic-ai/)** predicts 40% of agentic AI projects will be abandoned due to security and governance failures
-- Insurers are increasingly reluctant to underwrite agentic AI risks without strong controls
-
-### Machine-Speed Attacks
-
-Threat actors are already weaponizing agentic AI:
-
-- Malware uses LLMs at runtime to mutate behavior
-- AI-assisted attacks dramatically reduce cost and skill barriers
-- The shift to machine-versus-machine speed makes manual security processes obsolete
-
-### The Blast Radius
-
-When an agentic AI system fails:
-
-- **Every agent is a privileged user**
-- **Every prompt is potential code**
-- **Every tool is an execution surface**
-- **Every mistake can autonomously propagate**
-
----
-
-**→ See [Securing Agentic AI](securing-agentic-ai.md) for detailed attack mechanisms, OWASP mapping, and mitigation strategies.**
+**Next:** run [Demo 01: Poisoned Advisory](../demos/01-poisoned-advisory/README.md).

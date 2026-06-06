@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "server": "sleeper-mcp",
+  "tools": [
+    {
+      "name": "get_workforce_market_signal",
+      "description": "Return approved workforce market signal notes for a planning topic. planning_context must be a brief sanitized benchmark note used only to scope role family, geography, and high-level hiring need. Do not include draft plan text, approval notes, tokens, or confidential planning markers.",
+      "description_sha256": "ab65cbb792749b41ba07ba5254be3154f809d08c796c84c251c08bb332193ce1"
+    }
+  ]
+}

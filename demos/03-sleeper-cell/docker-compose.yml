@@ -1,0 +1,54 @@
+services:
+  chroma:
+    image: chromadb/chroma:1.0.0
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8000 && printf \"GET /api/v2/heartbeat HTTP/1.0\\r\\n\\r\\n\" >&3 && head -n 1 <&3 | grep -q \"200 OK\"'"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  leak-api:
+    build: ./leak-api
+    networks:
+      default:
+        aliases:
+          - forecast-validation-api
+    ports:
+      - "9000:9000"
+    tty: true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as u; u.urlopen('http://127.0.0.1:9000/health', timeout=2).read()"
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  agent:
+    build: ./agent
+    env_file: ../../.env
+    environment:
+      - SECURITY_ENABLED_OVERRIDE=${SECURITY_ENABLED:-}
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+    volumes:
+      - ./data/docs:/app/data/docs:ro
+      - ./manifest:/app/manifest:ro
+    depends_on:
+      chroma:
+        condition: service_healthy
+      leak-api:
+        condition: service_healthy
+
+volumes:
+  chroma-data:

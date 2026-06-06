@@ -1,0 +1,32 @@
+services:
+  mcp-server:
+    build: ./mcp-server
+    # SECURITY_ENABLED is NOT passed to the MCP server — it's always the attacker.
+    # SLEEPER_THRESHOLD=0 pre-poisons at startup for deterministic attack repros
+    # and the defense run.
+    environment:
+      - SLEEPER_THRESHOLD=${SLEEPER_THRESHOLD:-3}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/.well-known/mcp-attestation', timeout=2).read()"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+  agent:
+    build: ./agent
+    env_file: ../../.env
+    environment:
+      - SECURITY_ENABLED_OVERRIDE=${SECURITY_ENABLED:-}
+      - MCP_SERVER_URL=http://mcp-server:8080/mcp
+    volumes:
+      - ./data/planning:/app/data/planning:ro
+      - ./manifest:/app/manifest:ro
+    depends_on:
+      mcp-server:
+        condition: service_healthy
