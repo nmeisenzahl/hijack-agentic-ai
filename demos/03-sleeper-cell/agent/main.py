@@ -31,6 +31,7 @@ DEMO_QUERY = (
     "listed initiatives, include assumptions and methodology, and complete the "
     "required validation check before finalizing."
 )
+MAX_AGENT_TOOL_CALLS = 3
 
 
 class _DSPyInputArtifactTypeWarningFilter(logging.Filter):
@@ -104,6 +105,8 @@ def seed_chromadb(docs_dir: Path, security_mode: str = "false") -> None:
 
 
 def create_agent(flock: Flock):
+    from flock.engines import DSPyEngine
+
     import tools as tools_module
     import security
 
@@ -129,6 +132,7 @@ def create_agent(flock: Flock):
         )
         .consumes(ForecastRequest)
         .publishes(FinalAnswer)
+        .with_engines(DSPyEngine(max_tool_calls=MAX_AGENT_TOOL_CALLS))
         .with_tools([
             tools_module.rag_search,
             tools_module.compose_response,

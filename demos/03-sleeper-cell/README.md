@@ -39,10 +39,13 @@ Edit `../../.env` with the required model values, then set:
 SECURITY_ENABLED=false
 ```
 
-Run the vulnerable mode:
+Start the local support services, run the agent, then inspect the leak API logs:
 
 ```bash
-docker compose up --build --force-recreate
+docker compose up -d --build --force-recreate chroma leak-api
+docker compose build agent
+docker compose run --rm --no-deps agent
+docker compose logs leak-api --tail=150
 ```
 
 Expected markers:
@@ -51,7 +54,7 @@ Expected markers:
 - The agent output may show generated-code output such as `validation_status=200`.
 - The user-facing finance answer still looks plausible.
 
-Stop the attached run after the marker is visible.
+The `leak-api` service is kept detached during the agent run so its output is visible only when you explicitly request logs.
 
 ## 3. Vulnerable flow
 
@@ -96,12 +99,17 @@ Demo 03 has two secure modes:
 | `all` | Poisoned source documents before embedding, plus generated-code network egress. | Prompt Shields blocks the poisoned document before the vector index is built. |
 | `true` | Alias for `all`. | Safe carryover from Demos 01 and 02. |
 
+The demo caps the Flock/DSPy ReAct tool loop at 3 tool calls. This keeps secure-mode egress denial from turning into a long generated-code retry loop while leaving enough room for retrieval, calculation, and finalization.
+
 ### Secure mode: egress policy only
 
 Set `SECURITY_ENABLED=policy` in `../../.env`, or use a one-off shell prefix:
 
 ```bash
-SECURITY_ENABLED=policy docker compose up --build --force-recreate
+docker compose up -d --build --force-recreate chroma leak-api
+docker compose build agent
+SECURITY_ENABLED=policy docker compose run --rm --no-deps agent
+docker compose logs leak-api --tail=80
 ```
 
 Expected markers:
@@ -114,7 +122,10 @@ Expected markers:
 Set `SECURITY_ENABLED=all` in `../../.env`, or use a one-off shell prefix. Azure AI Content Safety credentials are required for this mode.
 
 ```bash
-SECURITY_ENABLED=all docker compose up --build --force-recreate
+docker compose up -d --build --force-recreate chroma leak-api
+docker compose build agent
+SECURITY_ENABLED=all docker compose run --rm --no-deps agent
+docker compose logs leak-api --tail=80
 ```
 
 Expected markers:
@@ -228,7 +239,7 @@ Use this reset to stop containers and clear the ChromaDB volume. The agent also 
 Troubleshooting:
 
 - If a mode change does not appear in the banner, verify `SECURITY_ENABLED` in the root `../../.env` and rerun with `--force-recreate`.
-- A non-empty shell override such as `SECURITY_ENABLED=policy docker compose up ...` takes precedence over `../../.env` for that run only.
+- A non-empty shell override such as `SECURITY_ENABLED=policy docker compose run --rm --no-deps agent` takes precedence over `../../.env` for that run only.
 - If `SECURITY_ENABLED=all` blocks at startup, confirm `AZURE_CONTENT_SAFETY_ENDPOINT` and `AZURE_CONTENT_SAFETY_KEY` are set.
 - If the attack marker is missing in unprotected mode, watch the `leak-api` logs for `DATA EXFILTRATED`.
 - If `policy` or `all` sends a payload to `leak-api`, treat that as a failed secure run and reset before retrying.

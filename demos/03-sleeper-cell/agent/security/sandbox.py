@@ -158,6 +158,7 @@ def _safe_builtins() -> dict[str, Any]:
     ]
     builtins_module = __import__("builtins")
     safe = {name: getattr(builtins_module, name) for name in allowed}
+    safe["Exception"] = builtins_module.Exception
     safe["__import__"] = _restricted_import
     return safe
 
