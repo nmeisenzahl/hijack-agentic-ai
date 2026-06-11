@@ -128,6 +128,31 @@ sequenceDiagram
     Note over LLM,Tool: LLM is not called and no false-positive action runs
 ```
 
+### Azure AI Content Safety — Prompt Shields
+
+Prompt Shields is the secure-run guard for this demo. The important property is that detection happens outside the model's reasoning path: the advisory text is evaluated before it becomes LLM context.
+
+In Demo 01, each advisory body is lower-trust document content. The guard calls the Azure AI Content Safety Prompt Shields endpoint with the triage prompt and advisory documents:
+
+```bash
+POST <endpoint>/contentsafety/text:shieldPrompt?api-version=2024-09-01
+```
+
+```json
+{
+  "userPrompt": "...",
+  "documents": ["advisory body ..."]
+}
+```
+
+The response includes independent verdicts for the user prompt and each document. A document `attackDetected: true` result fails closed: the agent stops before assembling model context, so the hidden HTML comment in `CVE-2026-1004` never reaches the LLM and `mark_false_positive` is not called.
+
+Prompt Shields detects both direct user-prompt attacks and document attacks. This demo is about the second category: third-party content that hides instructions in files, emails, pages, or RAG chunks. Scanning only the user's chat prompt would miss it.
+
+Prompt Shields is a layer, not a complete security boundary. Keep output validation, policy/audit, and human review for high-impact remediation decisions.
+
+Prompt Shields documentation: <https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection>
+
 ## 6. Key takeaways
 
 - Security advisories are data, not instructions, but the model can still treat embedded text as workflow guidance.

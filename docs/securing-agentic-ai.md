@@ -114,104 +114,7 @@ No single guardrail solves agentic AI security. Treat every boundary where data 
 - Deny generated-code network egress unless explicitly allowed.
 - Monitor retrieval IDs, scan results, tool calls, destinations, payload classes, and denials.
 
-## 7. Azure AI Content Safety — Prompt Shields
-
-### Why it exists
-
-LLMs cannot reliably detect that they are being manipulated — the attack is, by design, indistinguishable from legitimate content. Prompt Shields is a deterministic pre-model scan: it evaluates content before the model ever sees it, so the decision to block happens outside the model's reasoning path.
-
-In agentic systems, the document attack surface is larger than in chat applications. Every advisory file, email, web page, or RAG chunk the agent retrieves is a potential injection vector. Scanning at the user-prompt boundary alone is not enough.
-
-### What it does
-
-Prompt Shields is a unified REST API in Azure AI Content Safety. A single POST call accepts a user prompt and a list of documents and returns an independent verdict for each.
-
-**Two attack types detected:**
-
-| Attack type | Entry point | What the attacker does |
-|---|---|---|
-| **User Prompt attack** | User message | Attempts to override system rules, impersonate a persona, use encoding tricks, or embed fake conversation turns to jailbreak the model. |
-| **Document attack** | Third-party content — files, emails, web pages, RAG chunks | Hides instructions in retrieved or uploaded content to manipulate, exfiltrate, block, or redirect the LLM session. |
-
-**API shape:**
-
-```bash
-POST <endpoint>/contentsafety/text:shieldPrompt?api-version=2024-09-01
-
-{
-  "userPrompt": "...",
-  "documents": ["doc text 1", "doc text 2"]
-}
-```
-
-```json
-{
-  "userPromptAnalysis": { "attackDetected": false },
-  "documentsAnalysis":  [{ "attackDetected": true }]
-}
-```
-
-A `true` result means fail closed — stop processing before the LLM context is assembled.
-
-### How it is used in the demos
-
-| Demo | What is scanned | What is detected |
-|---|---|---|
-| Demo 01 (`SECURITY_ENABLED=true`) | Each advisory body is passed as a document. | The HTML comment injection in `CVE-2026-1004` is flagged as a Document attack. |
-| Demo 03 (`SECURITY_ENABLED=all`) | Each source Markdown document is passed as a document before embedding. | The hidden validation instruction in the poisoned Q4 guidelines is flagged before the vector index is built. |
-
-### Limitations and layering note
-
-Prompt Shields reduces risk but is not exhaustive: novel encodings, low-confidence attacks, and non-English content may produce false negatives. It is a first layer, not the only layer. Always combine it with output validation, action governance, and human review for high-impact decisions.
-
-Supported languages: English, German, French, Spanish, Italian, Portuguese, Japanese, Chinese.
-
-**→ [Prompt Shields documentation](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection)**
-
----
-
-## 8. AGT / Agent OS — Agent Governance Toolkit
-
-### Why it exists
-
-Standard IAM and RBAC controls define which APIs an agent can call. They do not govern what the agent does once connected. An agent that has been manipulated via indirect prompt injection will make tool calls that look authorized — because they are authorized. The agent holds the right credentials and the call reaches a real tool. The problem is that the model's intent was changed before the call was issued.
-
-AGT enforces policy at the middleware layer, independently of what the model decided. As the project states: *"Actions the AGT kernel denies are not 'unlikely.' They are structurally impossible."*
-
-### What it does
-
-AGT is Microsoft's open-source Agent Governance Toolkit (`github.com/microsoft/agent-governance-toolkit`). It sits between the agent runtime and tool execution. Broad AGT integrations can use middleware-style `govern()` wrapping; Demo 03 instead uses the lower-level Agent OS `EgressPolicy` primitive inside its generated-code network client.
-
-**Core capabilities:**
-
-| Capability | What it does |
-|---|---|
-| **Policy enforcement** | Can wrap tools with `govern(policy="policy.yaml")`. YAML, OPA, or Cedar rules are evaluated on every call. Non-matching calls raise `GovernanceDenied` before execution. |
-| **MCP Security Gateway** | Scans live MCP tool metadata for description drift, typosquatting, and hidden instructions. Compares against a pinned manifest; deviations are blocked before the tool is called. |
-| **Egress / network policy** | Default-deny outbound access. Tool calls that attempt network egress require an explicit allowlist entry. Generated code that tries to POST to an unlisted target is blocked structurally. |
-| **Execution sandboxing** | Four-ring privilege model isolates agent operations by trust level. |
-| **Tamper-evident audit logs** | Merkle chain records every governance decision with the policy version, request, and allow/deny rationale. |
-| **Zero-trust identity** | SPIFFE, DID, and mTLS for agent-to-agent authentication and delegation chain validation. |
-
-**Framework support:** Public AGT docs describe framework-agnostic support, with examples including LangChain, CrewAI, AutoGen, Google ADK, OpenAI Agents, LlamaIndex, Haystack, Mastra, MCP, A2A, and more. These demos use Flock together with Agent OS primitives; they do not depend on a claimed official Flock integration.
-
-### How it is used in the demos
-
-| Demo | AGT capability used | What it blocks |
-|---|---|---|
-| Demo 02 (`SECURITY_ENABLED=true`) | MCP Security Gateway compares live `get_workforce_market_signal` metadata against the pinned hash in `manifest/tools.lock.json`. | Description drift is detected; the benchmark call is never issued. |
-| Demo 03 (`SECURITY_ENABLED=policy`) | Agent OS `EgressPolicy` is loaded by `agent/security/egress_policy.py` and applied by the custom generated-code network client. Generated Python that tries to POST to `http://forecast-validation-api:9000/data` has no matching allowlist entry. | Network call is structurally blocked; `leak-api` receives nothing. |
-
-### Compliance alignment
-
-AGT ships with built-in compliance mappings to OWASP Agentic Top 10 (ASI 2026), NIST AI RMF, EU AI Act, SOC 2, and ISO/IEC 42001.
-
-**→ [AGT documentation](https://microsoft.github.io/agent-governance-toolkit/)**
-**→ [AGT on GitHub](https://github.com/microsoft/agent-governance-toolkit)**
-
----
-
-## 9. Cross-demo control model
+## 7. Cross-demo control model
 
 ```mermaid
 flowchart TB
@@ -263,7 +166,7 @@ flowchart TB
 | Output handling | Is model output validated before it drives workflow state? | Demo 01 and Demo 03. |
 | Monitoring | Can investigators see what context, tools, destinations, and policies were involved? | Demo logs are educational; production needs durable audit trails. |
 
-## 10. Talk-ready takeaways
+## 8. Talk-ready takeaways
 
 - **Text is control-plane input** when an agent can act on it.
 - **Tool metadata is supply chain** because it tells the model what a tool means.
@@ -271,7 +174,7 @@ flowchart TB
 - **Policy must sit outside model intent**; a model should not decide whether its own side effect is allowed.
 - **Layered defenses are practical**: Prompt Shields for document attacks, AGT/Agent OS for tool/action governance, and ChromaDB boundaries for retrieval-aware design.
 
-## 11. Resources
+## 9. Resources
 
 Start with the Securing Agentic Applications Guide — it bridges the two Top 10 lists and maps risk categories to actionable controls.
 

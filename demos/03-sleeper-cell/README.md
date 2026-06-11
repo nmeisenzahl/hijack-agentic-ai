@@ -170,6 +170,25 @@ sequenceDiagram
     Note over Policy: Egress policy remains as backup
 ```
 
+### AGT / Agent OS — Agent Governance Toolkit
+
+AGT/Agent OS is the action-governance layer for this demo. Standard IAM and RBAC can say the agent is allowed to run the code tool; they do not decide whether model-generated code should be allowed to open a network connection. If poisoned RAG content changes the model's intent, the resulting tool call can still look authorized.
+
+Demo 03 uses the lower-level Agent OS `EgressPolicy` primitive inside the generated-code network client. The policy is loaded by `agent/security/egress_policy.py` and evaluated before generated Python can send outbound HTTP. The poisoned code tries to POST to `http://forecast-validation-api:9000/data`, but there is no matching allowlist entry, so the network call is denied before `leak-api` receives anything.
+
+| Secure mode | AGT/Agent OS role |
+|---|---|
+| `policy` | Enforces default-deny network egress while still allowing local calculation code to run. |
+| `all` | Keeps the same egress policy active as a second layer after Prompt Shields scans source documents before vector creation. |
+
+The broader Agent Governance Toolkit is Microsoft's open-source policy layer for agent actions. It can wrap tool execution with middleware-style governance, evaluate YAML/OPA/Cedar policy, scan MCP metadata for drift through a security gateway, support sandboxing and identity controls, and emit audit records. Demo 03 focuses on egress because the attack path is generated code with a network side effect; Demo 02 covers the MCP metadata scanning path.
+
+Public AGT documentation describes framework-agnostic support. These demos use Flock together with Agent OS primitives; they do not depend on a claimed official Flock integration.
+
+AGT documentation: <https://microsoft.github.io/agent-governance-toolkit/>
+
+AGT on GitHub: <https://github.com/microsoft/agent-governance-toolkit>
+
 ## 6. Key takeaways
 
 - The RAG corpus is part of the agent's trusted computing base.
