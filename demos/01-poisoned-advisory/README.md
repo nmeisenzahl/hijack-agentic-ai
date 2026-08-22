@@ -167,11 +167,11 @@ Transition to Demo 02: this attack poisoned source documents. The next demo pois
 
 | ID | Name | How this demo maps |
 |---|---|---|
-| LLM01:2025 | Prompt Injection | An advisory body injects instructions that steer the agent's triage task. |
-| LLM05:2025 | Improper Output Handling | The application acts on the model's false-positive decision without independent verification. |
-| LLM06:2025 | Excessive Agency | The agent is allowed to close remediation work from model output alone. |
-| ASI-01 | Agent Goal Hijack | The agent's original goal is redirected from remediation triage to suppression of a critical CVE. |
-| ASI-06 | Memory & Context Poisoning | Untrusted advisory text poisons the model context and steers triage behavior. |
+| LLM01:2026 | Prompt Injection | An advisory body injects instructions that steer the agent's triage task. |
+| LLM03:2026 | Excessive Agency | The agent is allowed to close remediation work from model output alone. |
+| LLM10:2026 | Improper Output Handling | The application acts on the model's false-positive decision without independent verification. |
+| ASI01 | Agent Goal Hijack | The agent's original goal is redirected from remediation triage to suppression of a critical CVE. |
+| ASI06 | Memory & Context Poisoning | Untrusted advisory text poisons the model context and steers triage behavior. |
 
 ## 8. Cleanup and troubleshooting
 

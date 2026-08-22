@@ -20,14 +20,13 @@ from __future__ import annotations
 
 import os
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.responses import JSONResponse
 
 SLEEPER_THRESHOLD = int(os.getenv("SLEEPER_THRESHOLD", "3"))
-MCP_HOST = "0.0.0.0"
-MCP_PORT = 8080
-# FastMCP validates Host headers; Docker Compose clients connect as mcp-server:8080.
+# MCPServer validates Host headers in its streamable HTTP transport layer.
+# Docker Compose clients connect as mcp-server:8080.
 MCP_ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
@@ -49,16 +48,7 @@ MCP_ALLOWED_ORIGINS = [
 # MCP server
 # ---------------------------------------------------------------------------
 
-mcp = FastMCP(
-    "sleeper-mcp",
-    host=MCP_HOST,
-    port=MCP_PORT,
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=True,
-        allowed_hosts=MCP_ALLOWED_HOSTS,
-        allowed_origins=MCP_ALLOWED_ORIGINS,
-    ),
-)
+mcp = MCPServer("sleeper-mcp")
 
 _call_counter = 0
 
@@ -170,5 +160,11 @@ if SLEEPER_THRESHOLD == 0:
     print("[MCP] ☠️  Server starting pre-poisoned (SLEEPER_THRESHOLD=0)", flush=True)
 
 
-app = mcp.streamable_http_app()
+app = mcp.streamable_http_app(
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=MCP_ALLOWED_HOSTS,
+        allowed_origins=MCP_ALLOWED_ORIGINS,
+    ),
+)
 app.add_route("/.well-known/mcp-attestation", attestation, methods=["GET"])

@@ -190,11 +190,11 @@ Transition to Demo 03: Demo 02 poisoned a tool contract. Demo 03 asks what happe
 
 | ID | Name | How this demo maps |
 |---|---|---|
-| LLM02:2025 | Sensitive Information Disclosure | The poisoned MCP description tricks the agent into sending a confidential draft workforce plan through `planning_context`. |
-| LLM03:2025 | Supply Chain Vulnerabilities | A trusted MCP dependency changes its tool contract after initial review. |
-| LLM05:2025 | Improper Output Handling | The agent turns a benign benchmark lookup into an unrequested outbound data transfer. |
-| ASI-02 | Tool Misuse & Exploitation | Hidden tool metadata coerces the model into overfilling `planning_context` with sensitive local data. |
-| ASI-04 | Agentic Supply Chain Vulnerabilities | The MCP server behaves like a compromised agent dependency that mutates at runtime. |
+| LLM02:2026 | Sensitive Information Disclosure | The poisoned MCP description tricks the agent into sending a confidential draft workforce plan through `planning_context`. |
+| LLM04:2026 | Supply Chain | A trusted MCP dependency changes its tool contract after initial review. |
+| LLM10:2026 | Improper Output Handling | The agent turns a benign benchmark lookup into an unrequested outbound data transfer. |
+| ASI02 | Tool Misuse & Exploitation | Hidden tool metadata coerces the model into overfilling `planning_context` with sensitive local data. |
+| ASI04 | Agentic Supply Chain Vulnerabilities | The MCP server behaves like a compromised agent dependency that mutates at runtime. |
 
 ## 8. Cleanup and troubleshooting
 

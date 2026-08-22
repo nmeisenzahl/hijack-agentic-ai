@@ -11,8 +11,8 @@ RUN groupadd --system app \
 WORKDIR /app
 
 RUN pip install --no-cache-dir \
-    "fastapi==0.115.8" \
-    "uvicorn==0.34.0"
+    "fastapi==0.141.1" \
+    "uvicorn==0.52.4"
 
 COPY --chown=app:app main.py .
 

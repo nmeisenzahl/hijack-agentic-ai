@@ -52,7 +52,7 @@ Static analysis, dependency scanning, secrets detection, and least privilege sti
 
 The talk uses OWASP for shared vocabulary:
 
-- **OWASP Top 10 for LLM Applications 2025** — application-layer risks: prompt injection, sensitive information disclosure, supply chain vulnerabilities, improper output handling, excessive agency.
+- **OWASP Top 10 for LLM Applications 2026** — application-layer risks: prompt injection, sensitive information disclosure, supply chain vulnerabilities, improper output handling, excessive agency.
 - **OWASP Top 10 for Agentic Applications 2026** — agent-specific risks that emerge when systems can plan, use tools, remember context, coordinate, and act autonomously.
 - **OWASP Securing Agentic Applications Guide 1.0** — bridges the two Top 10 lists with practical design, deployment, and governance controls.
 

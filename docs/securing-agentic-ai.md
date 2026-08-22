@@ -25,7 +25,7 @@ No single guardrail solves agentic AI security. Treat every boundary where data 
 
 | Framework / tool | Where it appears | Why it matters |
 |---|---|---|
-| **OWASP Top 10 for LLM Applications 2025** | All demos | Gives the LLM application risk vocabulary: prompt injection, sensitive information disclosure, supply chain vulnerabilities, improper output handling, excessive agency, and RAG-related weaknesses. |
+| **OWASP Top 10 for LLM Applications 2026** | All demos | Gives the LLM application risk vocabulary: prompt injection, sensitive information disclosure, supply chain vulnerabilities, improper output handling, excessive agency, and RAG-related weaknesses. |
 | **OWASP Top 10 for Agentic Applications 2026** | All demos | Adds agent-specific risks such as goal hijack, tool misuse, agentic supply chain vulnerabilities, and memory/context poisoning. |
 | **OWASP Securing Agentic Applications Guide 1.0** | Outro/control discussion | Connects the risk categories to practical secure design, deployment, and governance patterns. |
 | **Flock** | All demo agents | The agent runtime powering all three demos. Provides typed inputs/outputs, a tool registry, and a guard lifecycle. The security patterns are not Flock-specific — any agentic runtime with similar primitives can apply them. |
@@ -33,34 +33,35 @@ No single guardrail solves agentic AI security. Treat every boundary where data 
 | **AGT/Agent OS** | Demo 02 and Demo 03 | Demo 02 uses MCP metadata scanning to detect tool-description drift. Demo 03 uses Agent OS `EgressPolicy` through the demo's custom generated-code network client to deny network access by default. |
 | **ChromaDB** | Demo 03 | Stores and queries the local RAG corpus. The demo supplies deterministic local embeddings so retrieval is reproducible and does not require embedding-model downloads. |
 
-## 3. OWASP Top 10 for LLM Applications 2025
+## 3. OWASP Top 10 for LLM Applications 2026
 
 | ID | Name | Demo coverage | What to watch for |
 |---|---|---|---|
-| **LLM01:2025** | Prompt Injection | 01, 03 | Untrusted text overrides developer/system intent through documents or retrieved content. |
-| **LLM02:2025** | Sensitive Information Disclosure | 02, 03 | Confidential context leaks through model output or tool calls. |
-| **LLM03:2025** | Supply Chain Vulnerabilities | 02 | Tool metadata or dependencies change after review. |
-| **LLM04:2025** | Data and Model Poisoning | 03 | RAG corpus content changes retrieved context and model behavior. |
-| **LLM05:2025** | Improper Output Handling | 01, 02, 03 | Model output is trusted as structured truth or passed to downstream tools without independent validation. |
-| **LLM06:2025** | Excessive Agency | 01, 03 | The agent can take high-impact actions without sufficient policy checks or human approval. |
-| **LLM08:2025** | Vector and Embedding Weaknesses | 03 related | Retrieval stores, embeddings, metadata filters, or similarity search become part of the trust boundary. |
+| **LLM01:2026** | Prompt Injection | 01, 03 | Untrusted text overrides developer/system intent through documents or retrieved content. |
+| **LLM02:2026** | Sensitive Information Disclosure | 02, 03 | Confidential context leaks through model output or tool calls. |
+| **LLM03:2026** | Excessive Agency | 01, 03 | The agent can take high-impact actions without sufficient policy checks or human approval. |
+| **LLM04:2026** | Supply Chain | 02 | Tool metadata or dependencies change after review. |
+| **LLM05:2026** | Data and Model Poisoning | 03 | RAG corpus content changes retrieved context and model behavior. |
+| **LLM09:2026** | Vector and Embedding Weaknesses | 03 related | Retrieval stores, embeddings, metadata filters, or similarity search become part of the trust boundary. |
+| **LLM10:2026** | Improper Output Handling | 01, 02, 03 | Model output is trusted as structured truth or passed to downstream tools without independent validation. |
 
 ## 4. OWASP Top 10 for Agentic Applications 2026
 
 | ID | Name | Demo coverage | What to watch for |
 |---|---|---|---|
-| **ASI-01** | Agent Goal Hijack | 01, 03 | The agent is steered away from the user's goal by injected or poisoned instructions. |
-| **ASI-02** | Tool Misuse & Exploitation | 02, 03 | Legitimate tools are used for unintended data transfer or side effects. |
-| **ASI-04** | Agentic Supply Chain Vulnerabilities | 02 | Tool contracts or manifests mutate after trust is granted. |
-| **ASI-06** | Memory & Context Poisoning | 01, 03 | Short-term context, retrieved knowledge, or local documents become instruction channels. |
+| **ASI01** | Agent Goal Hijack | 01, 03 | The agent is steered away from the user's goal by injected or poisoned instructions. |
+| **ASI02** | Tool Misuse & Exploitation | 02, 03 | Legitimate tools are used for unintended data transfer or side effects. |
+| **ASI04** | Agentic Supply Chain Vulnerabilities | 02 | Tool contracts or manifests mutate after trust is granted. |
+| **ASI05** | Unexpected Code Execution | 03 | Model-generated code runs through a legitimate tool and produces an unintended network side effect. |
+| **ASI06** | Memory & Context Poisoning | 01, 03 | Short-term context, retrieved knowledge, or local documents become instruction channels. |
 
 ## 5. Canonical demo mapping
 
 | Demo | Primary OWASP LLM mapping | Primary OWASP Agentic mapping | Why it matters |
 |---|---|---|---|
-| **Demo 01: Poisoned Advisory** | LLM01, LLM05, LLM06 | ASI-01, ASI-06 | A local advisory embeds instructions that make a triage agent downgrade a critical CVE. |
-| **Demo 02: Sleeper MCP** | LLM02, LLM03, LLM05 | ASI-02, ASI-04 | A trusted tool description drifts and causes overcollection through a legitimate argument. |
-| **Demo 03: Sleeper Cell** | LLM01, LLM02, LLM04, LLM05, LLM06; LLM08 as related | ASI-01, ASI-02, ASI-06 | A poisoned RAG document drives generated code toward a network side effect. |
+| **Demo 01: Poisoned Advisory** | LLM01, LLM03, LLM10 | ASI01, ASI06 | A local advisory embeds instructions that make a triage agent downgrade a critical CVE. |
+| **Demo 02: Sleeper MCP** | LLM02, LLM04, LLM10 | ASI02, ASI04 | A trusted tool description drifts and causes overcollection through a legitimate argument. |
+| **Demo 03: Sleeper Cell** | LLM01, LLM02, LLM03, LLM05, LLM09, LLM10 | ASI01, ASI02, ASI05, ASI06 | A poisoned RAG document drives generated code toward a network side effect. |
 
 ## 6. Demo lessons and defenses
 
@@ -178,7 +179,7 @@ flowchart TB
 
 Start with the Securing Agentic Applications Guide — it bridges the two Top 10 lists and maps risk categories to actionable controls.
 
-- [OWASP Top 10 for LLM Applications 2025](https://genai.owasp.org/resource/owasp-top-10-for-llm-applications-2025/) — application-layer risks
+- [OWASP Top 10 for LLM Applications 2026](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/) — application-layer risks
 - [OWASP Top 10 for Agentic Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) — agent-specific risks
 - [OWASP Securing Agentic Applications Guide 1.0](https://genai.owasp.org/resource/securing-agentic-applications-guide-1-0/) — practical design and deployment controls ← start here
 - [Flock](https://github.com/whiteducksoftware/flock) — agent runtime used in the demos

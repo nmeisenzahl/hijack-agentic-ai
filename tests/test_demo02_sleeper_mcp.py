@@ -177,15 +177,11 @@ def _patch_mcp_server_imports():
     mcp.__path__ = []
     mcp_server = types.ModuleType("mcp.server")
     mcp_server.__path__ = []
-    mcp_fastmcp = types.ModuleType("mcp.server.fastmcp")
+    mcp_mcpserver = types.ModuleType("mcp.server.mcpserver")
     mcp_transport_security = types.ModuleType("mcp.server.transport_security")
     starlette = types.ModuleType("starlette")
     starlette.__path__ = []
     starlette_responses = types.ModuleType("starlette.responses")
-
-    class ASGIApp:
-        def add_route(self, *_args, **_kwargs):
-            return None
 
     class JSONResponse:
         def __init__(self, content):
@@ -203,13 +199,19 @@ def _patch_mcp_server_imports():
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
-    class FastMCP:
-        def __init__(self, _name, **kwargs):
-            self._tool_manager = ToolManager()
-            self.settings = types.SimpleNamespace(**kwargs)
+    class ASGIApp:
+        def __init__(self, **kwargs):
+            self.transport_security = kwargs.get("transport_security")
 
-        def streamable_http_app(self):
-            return ASGIApp()
+        def add_route(self, *_args, **_kwargs):
+            return None
+
+    class MCPServer:
+        def __init__(self, _name, **_kwargs):
+            self._tool_manager = ToolManager()
+
+        def streamable_http_app(self, **kwargs):
+            return ASGIApp(**kwargs)
 
         def tool(self, description=None):
             def decorator(func):
@@ -221,14 +223,14 @@ def _patch_mcp_server_imports():
             return decorator
 
     starlette_responses.JSONResponse = JSONResponse
-    mcp_fastmcp.FastMCP = FastMCP
+    mcp_mcpserver.MCPServer = MCPServer
     mcp_transport_security.TransportSecuritySettings = TransportSecuritySettings
     return patch.dict(
         sys.modules,
         {
             "mcp": mcp,
             "mcp.server": mcp_server,
-            "mcp.server.fastmcp": mcp_fastmcp,
+            "mcp.server.mcpserver": mcp_mcpserver,
             "mcp.server.transport_security": mcp_transport_security,
             "starlette": starlette,
             "starlette.responses": starlette_responses,
@@ -435,13 +437,13 @@ class TestAttackSucceeds:
         assert "ELT-H1-7781" in captured.out
         assert "Project Lantern" in captured.out
 
-    def test_fastmcp_allows_docker_service_hostname(self, monkeypatch):
+    def test_mcpserver_transport_allows_docker_service_hostname(self, monkeypatch):
         server = _load_mcp_server(monkeypatch)
 
-        transport_security = server.mcp.settings.transport_security
-        assert server.mcp.settings.host == "0.0.0.0"
-        assert server.mcp.settings.port == 8080
+        transport_security = server.app.transport_security
+        assert transport_security.enable_dns_rebinding_protection is True
         assert "mcp-server:8080" in transport_security.allowed_hosts
+        assert "http://mcp-server:8080" in transport_security.allowed_origins
 
 
 class TestDefenseBlocks:
