@@ -1,0 +1,34 @@
+[project]
+name = "demo04-runbook-drift-agent"
+version = "0.1.0"
+description = "Demo 04: Runbook Drift Agent - poisoned log line widens an incident-response plan"
+requires-python = ">=3.12"
+dependencies = [
+    "flock-core==0.5.600",
+    "agent-governance-toolkit-core==5.0.0",
+    "httpx==0.28.1",
+    # pydantic/python-dotenv pins follow flock-core 0.5.600's exact requirements
+    # so the image build resolves reproducibly.
+    "pydantic==2.12.5",
+    "python-dotenv==1.2.2",
+    "pyyaml==6.0.3",  # agent-governance-toolkit-core imports yaml when its modules load.
+    "rich==14.2.0",
+]
+
+[build-system]
+requires = ["hatchling==1.32.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+only-include = [
+    "engines.py",
+    "main.py",
+    "model_config.py",
+    "models.py",
+    "runbook.py",
+    "tools.py",
+    "security",
+]

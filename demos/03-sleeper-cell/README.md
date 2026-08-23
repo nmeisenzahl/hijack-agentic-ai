@@ -244,7 +244,9 @@ AGT on GitHub: <https://github.com/microsoft/agent-governance-toolkit>
 - Observability makes silent side effects visible during testing and operations.
 - Red-team testing should cover poisoned source documents, poisoned tool metadata, and poisoned retrieved context.
 
-Closing: across the three demos, the pattern is the same. Production defense needs layered controls, not trust in model intent.
+Closing: across the first three demos, the pattern is the same. Production defense needs layered controls, not trust in model intent.
+
+But every control so far — scanning, metadata integrity, egress containment — is per-agent. It governs what one agent reads or does, not what a plan is allowed to become as it crosses agent boundaries. Next: [Demo 04: Runbook Drift](../04-runbook-drift/README.md), where a single poisoned log line widens a remediation plan across agents, and declared intent — not another per-agent check — is the control that stops it.
 
 ## 7. OWASP mapping
 

@@ -1,0 +1,37 @@
+services:
+  ops-api:
+    build: ./ops-api
+    ports:
+      - "9100:9100"
+    volumes:
+      - ./data:/app/data:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as u; u.urlopen('http://127.0.0.1:9100/health', timeout=2).read()"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  poisoner:
+    build: ./poisoner
+    environment:
+      - OPS_API_URL=http://ops-api:9100
+    depends_on:
+      ops-api:
+        condition: service_healthy
+
+  agent:
+    build: ./agent
+    env_file: ../../.env
+    environment:
+      - SECURITY_ENABLED_OVERRIDE=${SECURITY_ENABLED:-}
+      - OPS_API_URL=http://ops-api:9100
+    volumes:
+      - ./data:/app/data:ro
+    depends_on:
+      poisoner:
+        condition: service_completed_successfully
