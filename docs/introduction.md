@@ -24,16 +24,16 @@ A deployed agent can look like a trusted teammate:
 
 That makes it a **digital insider**. If an attacker can shape what the agent reads, which tool contract it trusts, or which retrieved content enters context, they may be able to steer the agent into misusing its own authority.
 
-The primary mechanism is **indirect prompt injection** — instructions hidden in documents, tool metadata, or retrieved content that the model receives as data but executes as commands.
+The primary mechanism is **indirect prompt injection**: instructions hidden in documents, tool metadata, or retrieved content that the model receives as data but executes as commands.
 
 ## What the demos show
 
-The demos move from "text changes an answer" to "text causes a trusted action" — and finally to "text becomes the authorization input for another agent," when a poisoned log line steers a remediation workflow. Each demo runs both a vulnerable and a secure version so you can see the attack and the mitigation back to back.
+The demos move from "text changes an answer" to "text causes a trusted action", and finally to "text becomes the authorization input for another agent" when a poisoned log line steers a remediation workflow. Each demo runs both a vulnerable and a secure version so you can see the attack and the mitigation back to back.
 
 | Demo | Use case | Boundary crossed | Mitigation shown |
 |---|---|---|---|
 | Demo 01: Poisoned Advisory | Vulnerability triage assistant reviews local security advisories. | Advisory text becomes operational guidance. | Azure AI Content Safety Prompt Shields scans advisory bodies before model use. |
-| Demo 02: Sleeper MCP | Workforce-planning assistant uses a connected MCP benchmark tool. | MCP tool description becomes part of the model's instruction surface. | Manifest pinning plus live metadata verification detect description drift. |
+| Demo 02: Sleeper MCP | Workforce-planning assistant uses a connected MCP benchmark tool. | MCP tool description becomes part of the model's instruction surface. | Manifest pinning plus live metadata verification detects description drift. |
 | Demo 03: Sleeper Cell | Finance assistant retrieves guidance from a RAG store and runs generated Python for calculations. | Retrieved content drives a code-execution path with network egress. | AGT egress policy governs generated-code side effects; Prompt Shields blocks poisoned source docs before vector creation. |
 | Demo 04: Runbook Drift | Incident-response workflow reads an operations access log and hands a remediation plan to an execution agent. | A log line written by an attacker becomes cross-agent authorization input: the commander's plan crosses to the remediation agent with injected privileged actions. | AGT declared intent fixes the runbook's permitted actions as the parent scope before any log is read; widened plans are rejected atomically and a trusted fallback runs instead. |
 
@@ -53,9 +53,9 @@ Static analysis, dependency scanning, secrets detection, and least privilege sti
 
 The talk uses OWASP for shared vocabulary:
 
-- **OWASP Top 10 for LLM Applications 2026** — application-layer risks: prompt injection, sensitive information disclosure, supply chain vulnerabilities, improper output handling, excessive agency.
-- **OWASP Top 10 for Agentic Applications 2026** — agent-specific risks that emerge when systems can plan, use tools, remember context, coordinate, and act autonomously.
-- **OWASP Securing Agentic Applications Guide 1.0** — bridges the two Top 10 lists with practical design, deployment, and governance controls.
+- **OWASP Top 10 for LLM Applications 2026** covers application-layer risks: prompt injection, sensitive information disclosure, supply chain vulnerabilities, improper output handling, and excessive agency.
+- **OWASP Top 10 for Agentic Applications 2026** covers agent-specific risks that emerge when systems can plan, use tools, remember context, coordinate, and act autonomously.
+- **OWASP Securing Agentic Applications Guide 1.0** bridges the two Top 10 lists with practical design, deployment, and governance controls.
 
 Each demo is mapped to specific OWASP IDs in its README and in the closing document.
 

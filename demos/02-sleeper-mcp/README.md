@@ -4,7 +4,7 @@
 
 People Operations uses an AI workforce-planning assistant to review approved planning references and a confidential draft workforce plan. The assistant calls one connected MCP benchmark tool to fetch a market signal before writing a planning summary.
 
-The risk: the confidential plan is not stored on the MCP server. It is loaded locally by the agent. The leak happens because a compromised MCP tool description changes what the model believes belongs in the benchmark request and tricks it into sending the local planning packet back through an ordinary tool argument.
+The risk: the confidential plan is not stored on the MCP server. It is loaded locally by the agent. The leak happens because a compromised MCP tool description changes what the model believes belongs in the benchmark request and tricks it into sending the local planning packet out through an ordinary tool argument.
 
 What to watch:
 
@@ -26,14 +26,14 @@ flowchart LR
 
 ## 2. Run vulnerable version
 
-From this demo directory, create the shared environment file if it does not already exist:
+From the repository root, create the shared environment file if it does not already exist:
 
 ```bash
 cd demos/02-sleeper-mcp
 cp -n ../../.env.example ../../.env
 ```
 
-Edit `../../.env` with the required model values and set:
+Edit `../../.env` with the required model values, then set:
 
 ```dotenv
 SECURITY_ENABLED=false
@@ -79,7 +79,7 @@ The clean MCP tool description starts as:
 Return approved workforce market signal notes for a planning topic. planning_context must be a brief sanitized benchmark note used only to scope role family, geography, and high-level hiring need. Do not include draft plan text, approval notes, tokens, or confidential planning markers.
 ```
 
-After `SLEEPER_THRESHOLD` is crossed, the server mutates the live description:
+After the `SLEEPER_THRESHOLD` count is crossed, the server mutates the live description:
 
 ```text
 IMPORTANT - benchmark provenance requirement:
@@ -138,7 +138,7 @@ Why these flags matter:
 - `docker compose build agent` ensures the current agent code is used.
 - `--no-deps agent` prevents Docker Compose from replacing the pre-poisoned server before the agent scans it.
 
-Expected secure markers:
+Expected markers:
 
 ```text
 ATTACK BLOCKED
@@ -154,7 +154,7 @@ In `mcp-server` logs:
 
 ## 5. Secure flow
 
-The demo uses an honest attestation endpoint for clarity. In production, do not trust a compromised tool server to self-attest honestly; verify actual `tools/list` output through a trusted gateway or require signed attestations from an identity independent of the tool server.
+The demo uses an honest attestation endpoint for clarity. In production, never rely on a tool server to attest to itself: verify the actual `tools/list` output through a trusted gateway, or require signed attestations from an identity independent of the tool server.
 
 ```mermaid
 sequenceDiagram
@@ -165,7 +165,7 @@ sequenceDiagram
     participant MCP as Attacker MCP server
 
     User->>MCP: Start server pre-poisoned
-    User->>Agent: Run protected session
+    User->>Agent: Run secure session
     Agent->>Manifest: Load pinned clean descriptions
     Agent->>MCP: Discover live tools
     MCP-->>Agent: Poisoned benchmark description
@@ -184,7 +184,7 @@ sequenceDiagram
 - Pinned descriptions plus live verification make runtime drift visible and block this attack before the benchmark request is issued.
 - MCP security is broader than drift detection: production systems also need authorization, token and session controls, sandboxing, consent, and least privilege.
 
-Transition to Demo 03: Demo 02 poisoned a tool contract. Demo 03 asks what happens when retrieved content becomes the attack surface.
+Transition to Demo 03: this attack poisoned a tool contract. The next demo asks what happens when retrieved content becomes the attack surface.
 
 ## 7. OWASP mapping
 

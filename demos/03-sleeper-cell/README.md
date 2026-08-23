@@ -4,7 +4,7 @@
 
 Finance uses an AI assistant to create a Q4 headcount and cost forecast package. The assistant retrieves internal guidance from a local RAG store and can run generated Python for calculations.
 
-The risk: one retrieved document looks like normal forecasting guidance and carries a fake QA validation workflow as visible, plausible internal guidance. Nothing is concealed — the instruction sits in plain sight, and the model still turns it into generated code that posts the full forecast context to an internal-looking endpoint. The demo is local-safe: the visible "exfiltration" target is the local `leak-api` container, not an external service.
+The risk: one retrieved document looks like normal forecasting guidance and carries a fake QA validation workflow as visible, plausible internal guidance. Nothing is concealed: the instruction sits in plain sight, and the model still turns it into generated code that posts the full forecast context to an internal-looking endpoint. The demo is local-safe: the visible "exfiltration" target is the local `leak-api` container, not an external service.
 
 What to watch:
 
@@ -26,7 +26,7 @@ flowchart LR
 
 ## 2. Run vulnerable version
 
-From this demo directory, create the shared environment file if it does not already exist:
+From the repository root, create the shared environment file if it does not already exist:
 
 ```bash
 cd demos/03-sleeper-cell
@@ -60,7 +60,7 @@ The `leak-api` service is kept detached during the agent run so its output is vi
 
 ### Step 2: rerun from the persisted vector store (the poison lives in Chroma)
 
-A normal run reseeds Chroma from `data/docs/*.md` on every startup. Rerun the agent with one env var added so it reuses the persisted `docs` collection instead — no source files are read, scanned, or embedded:
+A normal run reseeds Chroma from `data/docs/*.md` on every startup. Rerun the agent with one env var added so it reuses the persisted `docs` collection instead, with no source files read, scanned, or embedded:
 
 ```bash
 SKIP_RESEED=true docker compose run --rm --no-deps agent
@@ -72,7 +72,7 @@ Expected markers:
 - Startup prints the reuse banner `reusing persisted Chroma collection 'docs'`.
 - The leak API still logs `DATA EXFILTRATED`, served entirely from the persisted Chroma volume.
 
-Nothing on disk changed between the two runs: the poisoned source file is still present in `data/docs`, and the only difference is one env var. The attack fires because the poisoned embedding already lives in the persisted Chroma volume — the poison lives in the vector store.
+Nothing on disk changed between the two runs: the poisoned source file is still present in `data/docs`, and the only difference is one env var. The attack fires because the poisoned embedding already lives in the persisted Chroma volume: the poison lives in the vector store.
 
 `SKIP_RESEED` accepts `1` or `true` (case-insensitive). It fails closed with `SKIP_RESEED=true requires an existing Chroma collection named 'docs'` if no seeding run happened first. For a stronger on-stage visual you may additionally move the poisoned file aside and restore it afterwards.
 
@@ -111,7 +111,7 @@ sequenceDiagram
 
 ## 4. Run secure version
 
-Demo 03 has two secure modes:
+Demo 03 has two secure modes, plus `true` as an alias:
 
 | Mode | What it blocks | What to notice |
 |---|---|---|
@@ -163,10 +163,10 @@ docker compose logs leak-api --tail=80
 
 Expected markers:
 
-- Startup prints the ingestion-scan bypass banner `source ingestion scan skipped` / `egress policy remains enabled`, because Prompt Shield never sees source files when reseeding is skipped.
-- The egress policy still contains the persisted poison: terminal shows `ATTACK BLOCKED` with `NetworkEgressDenied`, and `leak-api` receives no payload.
+- Startup prints the ingestion-scan bypass banner `source ingestion scan skipped` / `egress policy remains enabled`, because Prompt Shields never sees source files when reseeding is skipped.
+- The egress layer still contains the persisted poison: the terminal shows `ATTACK BLOCKED` with `NetworkEgressDenied`, and `leak-api` receives no payload.
 
-A pre-poisoned store bypasses source scanning entirely — this is why the egress layer is the real boundary.
+A pre-poisoned store bypasses source scanning entirely, which is why the egress layer is the real boundary.
 
 ## 5. Secure flow
 
@@ -215,7 +215,7 @@ sequenceDiagram
     Note over Policy: Egress policy remains as backup
 ```
 
-### AGT / Agent OS — Agent Governance Toolkit
+### AGT/Agent OS: Agent Governance Toolkit
 
 AGT/Agent OS is the action-governance layer for this demo. Standard IAM and RBAC can say the agent is allowed to run the code tool; they do not decide whether model-generated code should be allowed to open a network connection. If poisoned RAG content changes the model's intent, the resulting tool call can still look authorized.
 
@@ -228,7 +228,7 @@ Demo 03 uses the lower-level Agent OS `EgressPolicy` primitive inside the genera
 
 The broader Agent Governance Toolkit is Microsoft's open-source policy layer for agent actions. It can wrap tool execution with middleware-style governance, evaluate YAML/OPA/Cedar policy, scan MCP metadata for drift through a security gateway, support sandboxing and identity controls, and emit audit records. Demo 03 focuses on egress because the attack path is generated code with a network side effect; Demo 02 covers the MCP metadata scanning path.
 
-Public AGT documentation describes framework-agnostic support. These demos use Flock together with Agent OS primitives; they do not depend on a claimed official Flock integration.
+Public AGT documentation describes framework-agnostic support. These demos use Flock together with Agent OS primitives; they do not rely on an official Flock integration.
 
 AGT documentation: <https://microsoft.github.io/agent-governance-toolkit/>
 
@@ -246,7 +246,7 @@ AGT on GitHub: <https://github.com/microsoft/agent-governance-toolkit>
 
 Closing: across the first three demos, the pattern is the same. Production defense needs layered controls, not trust in model intent.
 
-But every control so far — scanning, metadata integrity, egress containment — is per-agent. It governs what one agent reads or does, not what a plan is allowed to become as it crosses agent boundaries. Next: [Demo 04: Runbook Drift](../04-runbook-drift/README.md), where a single poisoned log line widens a remediation plan across agents, and declared intent — not another per-agent check — is the control that stops it.
+But every control so far, from scanning to metadata integrity to egress containment, is per-agent. It governs what one agent reads or does, not what a plan is allowed to become as it crosses agent boundaries. **Next:** run [Demo 04: Runbook Drift](../04-runbook-drift/README.md), where a single poisoned log line widens a remediation plan across agents and the control that stops it is declared intent rather than another per-agent check.
 
 ## 7. OWASP mapping
 
@@ -278,6 +278,6 @@ Troubleshooting:
 - If a mode change does not appear in the banner, verify `SECURITY_ENABLED` in the root `../../.env` and rerun with `--force-recreate`.
 - A non-empty shell override such as `SECURITY_ENABLED=policy docker compose run --rm --no-deps agent` takes precedence over `../../.env` for that run only.
 - If `SECURITY_ENABLED=all` blocks at startup, confirm `AZURE_CONTENT_SAFETY_ENDPOINT` and `AZURE_CONTENT_SAFETY_KEY` are set.
-- If the attack marker is missing in unprotected mode, watch the `leak-api` logs for `DATA EXFILTRATED`.
+- If the attack marker is missing in vulnerable mode, watch the `leak-api` logs for `DATA EXFILTRATED`.
 - If `policy` or `all` sends a payload to `leak-api`, treat that as a failed secure run and reset before retrying.
 - No external embedding credentials or model downloads are needed; Demo 03 uses deterministic local embeddings for reproducible retrieval.

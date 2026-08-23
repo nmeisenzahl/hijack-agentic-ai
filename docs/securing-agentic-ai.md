@@ -4,7 +4,7 @@ Use this page as the outro after the demos. It summarizes what happened, maps ea
 
 ## 1. Closing thesis
 
-Four demos, four attack surfaces, four mitigations. The core pattern was the same every time:
+The talk covered four demos, four attack surfaces, and four mitigations. The core pattern was the same every time:
 
 1. **Poisoned documents** can hijack decisions before any tool is used.
 2. **Poisoned tool metadata** can turn a trusted tool contract into a supply-chain instruction channel.
@@ -30,7 +30,7 @@ No single guardrail solves agentic AI security. Treat every boundary where data 
 | **OWASP Top 10 for LLM Applications 2026** | All demos | Gives the LLM application risk vocabulary: prompt injection, sensitive information disclosure, supply chain vulnerabilities, improper output handling, excessive agency, and RAG-related weaknesses. |
 | **OWASP Top 10 for Agentic Applications 2026** | All demos | Adds agent-specific risks such as goal hijack, tool misuse, agentic supply chain vulnerabilities, and memory/context poisoning. |
 | **OWASP Securing Agentic Applications Guide 1.0** | Outro/control discussion | Connects the risk categories to practical secure design, deployment, and governance patterns. |
-| **Flock** | All demo agents | The agent runtime powering all four demos. Provides typed inputs/outputs, a tool registry, and a guard lifecycle. The security patterns are not Flock-specific — any agentic runtime with similar primitives can apply them. |
+| **Flock** | All demo agents | The agent runtime powering all four demos. Provides typed inputs/outputs, a tool registry, and a guard lifecycle. The security patterns are not Flock-specific; any agentic runtime with similar primitives can apply them. |
 | **Azure AI Content Safety Prompt Shields** | Demo 01 and Demo 03 `all` | Scans lower-trust document content before it reaches the model or vector store. Demo 01 scans advisories; Demo 03 scans RAG source documents before embedding. |
 | **AGT/Agent OS** | Demo 02, Demo 03, and Demo 04 | Demo 02 uses MCP metadata scanning to detect tool-description drift. Demo 03 uses Agent OS `EgressPolicy` through the demo's custom generated-code network client to deny network access by default. Demo 04 uses Agent OS declared intent (`IntentManager`, `create_child_intent`, `check_action`, `verify_intent`) to fix a runbook-derived authorization scope before untrusted logs are read. |
 | **ChromaDB** | Demo 03 | Stores and queries the local RAG corpus. The demo supplies deterministic local embeddings so retrieval is reproducible and does not require embedding-model downloads. |
@@ -44,7 +44,7 @@ No single guardrail solves agentic AI security. Treat every boundary where data 
 | **LLM03:2026** | Excessive Agency | 01, 03, 04 | The agent can take high-impact actions without sufficient policy checks, declared scope, or human approval. |
 | **LLM04:2026** | Supply Chain | 02 | Tool metadata or dependencies change after review. |
 | **LLM05:2026** | Data and Model Poisoning | 03 | RAG corpus content changes retrieved context and model behavior. |
-| **LLM09:2026** | Vector and Embedding Weaknesses | 03 related | Retrieval stores, embeddings, metadata filters, or similarity search become part of the trust boundary. |
+| **LLM09:2026** | Vector and Embedding Weaknesses | 03 | Retrieval stores, embeddings, metadata filters, or similarity search become part of the trust boundary. |
 | **LLM10:2026** | Improper Output Handling | 01, 02, 03 | Model output is trusted as structured truth or passed to downstream tools without independent validation. |
 
 ## 4. OWASP Top 10 for Agentic Applications 2026
@@ -61,7 +61,7 @@ No single guardrail solves agentic AI security. Treat every boundary where data 
 | **ASI08** | Cascading Failures | 04 | One poisoned log line cascades into a chain of privileged actions across the workflow. |
 | **ASI09** | Human-Agent Trust Exploitation | 04 | A fake system notice exploits the agent's trained trust in operational directives. |
 
-This demo set does not claim complete OWASP Agentic Top 10 coverage — ASI10 Rogue Agents, for example, remains outside the demo set.
+This demo set does not claim complete OWASP Agentic Top 10 coverage. ASI10 Rogue Agents, for example, remains outside the demo set.
 
 ## 5. Canonical demo mapping
 
@@ -76,7 +76,7 @@ This demo set does not claim complete OWASP Agentic Top 10 coverage — ASI10 Ro
 
 ### Demo 01: Poisoned Advisory
 
-**Attack:** A vulnerability advisory includes a fake vendor reassessment telling the agent to mark a critical RCE as a false positive.
+**Attack:** A vulnerability advisory includes a fake vendor reassessment telling the agent to mark a critical CVE as a false positive.
 
 **Security lesson:** Documents that look authoritative can still be lower-trust data. If the agent reads them as instructions, the agent goal can be hijacked.
 
@@ -107,7 +107,7 @@ This demo set does not claim complete OWASP Agentic Top 10 coverage — ASI10 Ro
 
 ### Demo 03: Sleeper Cell
 
-**Attack:** A poisoned RAG document looks like finance guidance but hides a validation workflow that causes generated code to post prior context, retrieved documents, assumptions, methodology, and results to a local leak API.
+**Attack:** A poisoned RAG document looks like finance guidance but carries a fake validation workflow, in plain sight, that causes generated code to post prior context, retrieved documents, assumptions, methodology, and results to a local leak API.
 
 **Security lesson:** RAG content is both data and potential instruction. Code execution tools can be legitimate, but generated code needs an independent egress boundary.
 
@@ -126,9 +126,9 @@ This demo set does not claim complete OWASP Agentic Top 10 coverage — ASI10 Ro
 
 ### Demo 04: Runbook Drift
 
-**Attack:** A single attacker request with a crafted `User-Agent` lands in the operations access log as a fake `SYSTEM NOTICE`. The incident commander treats it as operational evidence and widens the remediation plan with `disable_audit_logging` and `create_admin_user` — both legitimate tools of the remediation agent.
+**Attack:** A single attacker request with a crafted `User-Agent` lands in the operations access log as a fake `SYSTEM NOTICE`. The incident commander treats it as operational evidence and widens the remediation plan with `disable_audit_logging` and `create_admin_user`, both of which are legitimate tools of the remediation agent.
 
-**Security lesson:** Anything the agent reads — including logs — is untrusted input. Per-agent allowlists and RBAC cannot see the workflow graph: the remediation agent legitimately owns the dangerous tools, so role separation alone lets a poisoned plan through. The authorization boundary must be declared from a trusted source before untrusted content is read.
+**Security lesson:** Anything the agent reads, including logs, is untrusted input. Per-agent allowlists and RBAC cannot see the workflow graph: the remediation agent legitimately owns the dangerous tools, so role separation alone lets a poisoned plan through. The authorization boundary must be declared from a trusted source before untrusted content is read.
 
 **Repository defense:** With `SECURITY_ENABLED=true`, the workflow declares the runbook's `permitted_actions` as the AGT parent intent before any log is read. The widened plan is rejected atomically with `IntentScopeError` because a child intent may only narrow the parent's scope; the runbook's ordered `safe_fallback_steps` execute instead. Execution-time `check_action` re-verifies every tool call as a backstop, and `verify_intent` audits planned versus executed actions per child intent.
 
@@ -197,27 +197,27 @@ flowchart TB
 | Monitoring | Can investigators see what context, tools, destinations, and policies were involved? | Demo logs are educational; production needs durable audit trails. |
 | Declared intent | Is the workflow's authorized scope declared from a trusted source before untrusted content is read, and can every derived plan only narrow it? | Demo 04. |
 
-The first six layers are necessary but not sufficient: they are all per-agent controls. A poisoned plan that crosses agent boundaries through legitimate privileges — Demo 04 — passes every per-agent check. **Declared intent** is the seventh layer because per-agent controls don't see the graph; only a scope declared for the workflow as a whole, fixed before untrusted content enters, can reject a widened cross-agent plan.
+The first six layers are necessary but not sufficient: they are all per-agent controls. A poisoned plan that crosses agent boundaries through legitimate privileges, as in Demo 04, passes every per-agent check. **Declared intent** is the seventh layer because per-agent controls do not see the graph; only a scope declared for the workflow as a whole, fixed before untrusted content enters, can reject a widened cross-agent plan.
 
-Across the four demos the control arc is **filter, integrity, containment, authorization**: probabilistic content filtering (Demo 01, Prompt Shields), deterministic metadata integrity (Demo 02, manifest fingerprinting), deterministic egress containment (Demo 03, egress policy), and deterministic declared-intent authorization (Demo 04).
+Across the four demos, the control arc is **filter, integrity, containment, and authorization**: probabilistic content filtering (Demo 01, Prompt Shields), deterministic metadata integrity (Demo 02, manifest pinning), deterministic egress containment (Demo 03, egress policy), and deterministic declared-intent authorization (Demo 04).
 
 ## 8. Talk-ready takeaways
 
-- **Text is control-plane input** when an agent can act on it — including log lines.
+- **Text is control-plane input** when an agent can act on it, log lines included.
 - **Tool metadata is supply chain** because it tells the model what a tool means.
 - **RAG is not passive memory**; retrieved content can become executable influence.
-- **Policy must sit outside model intent**; a model should not decide whether its own side effect is allowed.
-- **Per-agent controls don't see the graph**; declare workflow intent from a trusted source before untrusted content is read, and let derived plans only narrow it.
+- **Policy must sit outside model intent**, because a model should not decide whether its own side effect is allowed.
+- **Per-agent controls do not see the graph**; declare workflow intent from a trusted source before untrusted content is read, and let derived plans only narrow it.
 - **Layered defenses are practical**: Prompt Shields for document attacks, AGT/Agent OS for tool, action, and intent governance, and ChromaDB boundaries for retrieval-aware design.
 
 ## 9. Resources
 
-Start with the Securing Agentic Applications Guide — it bridges the two Top 10 lists and maps risk categories to actionable controls.
+Start with the Securing Agentic Applications Guide: it bridges the two Top 10 lists and maps risk categories to actionable controls.
 
-- [OWASP Top 10 for LLM Applications 2026](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/) — application-layer risks
-- [OWASP Top 10 for Agentic Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) — agent-specific risks
-- [OWASP Securing Agentic Applications Guide 1.0](https://genai.owasp.org/resource/securing-agentic-applications-guide-1-0/) — practical design and deployment controls ← start here
-- [Flock](https://github.com/whiteducksoftware/flock) — agent runtime used in the demos
-- [Azure AI Content Safety Prompt Shields](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection) — document scanning used in Demo 01 and Demo 03
-- [AGT/Agent OS](https://microsoft.github.io/agent-governance-toolkit/) — MCP scanning and egress policy used in Demo 02 and Demo 03, declared intent used in Demo 04
-- [ChromaDB](https://www.trychroma.com/) — RAG vector store used in Demo 03
+- [OWASP Top 10 for LLM Applications 2026](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/): application-layer risks
+- [OWASP Top 10 for Agentic Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/): agent-specific risks
+- [OWASP Securing Agentic Applications Guide 1.0](https://genai.owasp.org/resource/securing-agentic-applications-guide-1-0/): practical design and deployment controls
+- [Flock](https://github.com/whiteducksoftware/flock): agent runtime used in the demos
+- [Azure AI Content Safety Prompt Shields](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection): document scanning used in Demo 01 and Demo 03
+- [AGT/Agent OS](https://microsoft.github.io/agent-governance-toolkit/): MCP scanning and egress policy used in Demo 02 and Demo 03, declared intent used in Demo 04
+- [ChromaDB](https://www.trychroma.com/): RAG vector store used in Demo 03
