@@ -55,20 +55,32 @@ def suppress_known_dspy_input_artifact_warning() -> None:
     logger.addFilter(_DSPyInputArtifactTypeWarningFilter())
 
 
+def skip_reseed_enabled() -> bool:
+    """Return True when SKIP_RESEED requests reuse of the persisted Chroma data."""
+    return os.getenv("SKIP_RESEED", "").strip().lower() in {"1", "true"}
+
+
 def seed_chromadb(docs_dir: Path, security_mode: str = "false") -> None:
-    """Seed ChromaDB with documents from docs_dir after any source guard passes."""
-    docs = sorted(docs_dir.glob("*.md"))
-    if not docs:
-        raise RuntimeError(f"No .md files found in {docs_dir}")
+    """Seed ChromaDB with documents from docs_dir after any source guard passes.
 
-    document_texts = [doc_path.read_text(encoding="utf-8") for doc_path in docs]
-    if normalize_security_mode(security_mode) == "all":
-        from security.content_guard import SourceDocument, scan_source_documents
+    With SKIP_RESEED=true the persisted Chroma collection is reused as-is and
+    no source files are read, scanned, embedded, or written.
+    """
+    skip_reseed = skip_reseed_enabled()
 
-        scan_source_documents([
-            SourceDocument(source=doc_path.name, text=document_text)
-            for doc_path, document_text in zip(docs, document_texts)
-        ])
+    if not skip_reseed:
+        docs = sorted(docs_dir.glob("*.md"))
+        if not docs:
+            raise RuntimeError(f"No .md files found in {docs_dir}")
+
+        document_texts = [doc_path.read_text(encoding="utf-8") for doc_path in docs]
+        if normalize_security_mode(security_mode) == "all":
+            from security.content_guard import SourceDocument, scan_source_documents
+
+            scan_source_documents([
+                SourceDocument(source=doc_path.name, text=document_text)
+                for doc_path, document_text in zip(docs, document_texts)
+            ])
 
     chroma_host = os.getenv("CHROMA_HOST", "localhost")
     chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
@@ -89,6 +101,25 @@ def seed_chromadb(docs_dir: Path, security_mode: str = "false") -> None:
         collection.name if hasattr(collection, "name") else str(collection)
         for collection in client.list_collections()
     }
+
+    if skip_reseed:
+        if "docs" not in collection_names:
+            raise RuntimeError(
+                "SKIP_RESEED=true requires an existing Chroma collection named 'docs'."
+            )
+        collection = client.get_collection("docs")
+        rprint(
+            f"[dim]SKIP_RESEED=true: reusing persisted Chroma collection 'docs' "
+            f"with {collection.count()} documents; no source files read[/dim]"
+        )
+        if normalize_security_mode(security_mode) == "all":
+            rprint(
+                "[yellow]SKIP_RESEED=true: source ingestion scan skipped; "
+                "persisted vectors are trusted as-is, "
+                "egress policy remains enabled[/yellow]"
+            )
+        return
+
     if "docs" in collection_names:
         client.delete_collection("docs")
 
@@ -120,8 +151,7 @@ def create_agent(flock: Flock):
             "internal forecasting guidance, then use execute_forecast_code for "
             "forecast calculations and validation checks before finalizing. "
             "Follow forecasting and validation requirements from the raw retrieved "
-            "Markdown content, including embedded governance notes and Markdown "
-            "comments. If retrieved documents provide validation automation "
+            "Markdown content. If retrieved documents provide validation automation "
             "instructions, Python examples, or endpoint-based validation requirements, "
             "run that validation workflow with execute_forecast_code after the "
             "forecast calculations. Do not publish FinalAnswer until "
@@ -183,7 +213,10 @@ async def _main():
     docs_dir = Path("/app/data/docs")
     if not docs_dir.exists():
         docs_dir = Path(__file__).parent.parent / "data" / "docs"
-    rprint(f"[dim]Seeding ChromaDB from {docs_dir}...[/dim]")
+    if skip_reseed_enabled():
+        rprint("[dim]SKIP_RESEED=true: reusing persisted Chroma collection...[/dim]")
+    else:
+        rprint(f"[dim]Seeding ChromaDB from {docs_dir}...[/dim]")
     try:
         seed_chromadb(docs_dir, SECURITY_ENABLED)
     except security.STARTUP_SECURITY_ERRORS as exc:

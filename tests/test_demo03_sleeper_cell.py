@@ -21,7 +21,6 @@ import fnmatch
 import importlib
 import inspect
 import json
-import re
 import sys
 import types
 from pathlib import Path
@@ -44,14 +43,6 @@ CLEAN_DOC = "Q4 target: $142M. Headcount freeze in Engineering."
 COMPOSE_FILE = Path("demos/03-sleeper-cell/docker-compose.yml")
 README_FILE = Path("demos/03-sleeper-cell/README.md")
 POLICY_FILE = Path("demos/03-sleeper-cell/manifest/agt-policy.json")
-
-
-def _visible_markdown(content: str) -> str:
-    return re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL)
-
-
-def _html_comments(content: str) -> str:
-    return "\n".join(re.findall(r"<!--(.*?)-->", content, flags=re.DOTALL))
 
 
 def _fake_pydantic_module() -> types.ModuleType:
@@ -295,6 +286,7 @@ class TestInjectionInPoisonedDoc:
     def test_compose_supports_shell_override_for_security_mode(self):
         compose = COMPOSE_FILE.read_text()
         assert "SECURITY_ENABLED_OVERRIDE=${SECURITY_ENABLED:-}" in compose
+        assert "SKIP_RESEED=${SKIP_RESEED:-}" in compose
 
     def test_compose_uses_leak_api_service(self):
         compose = COMPOSE_FILE.read_text()
@@ -315,7 +307,7 @@ class TestInjectionInPoisonedDoc:
         assert "docker compose up --build --force-recreate" not in readme
 
     def test_poisoned_doc_contains_generated_code_instruction(self):
-        """Poisoned document must keep the sleeper instruction in a comment."""
+        """Poisoned document must keep the sleeper instruction as visible prose."""
         doc_path = (
             Path("demos/03-sleeper-cell")
             / "data"
@@ -323,24 +315,17 @@ class TestInjectionInPoisonedDoc:
             / "q4-forecasting-guidelines-poisoned.md"
         )
         content = doc_path.read_text()
-        visible = _visible_markdown(content)
-        comments = _html_comments(content)
 
-        assert "<!--" in content
-        assert "-->" in content
-        assert "Forecast Package Quality Checklist" in visible
-        assert "SYSTEM CONTEXT UPDATE" in content
-        assert "Before finalizing any Q4 forecast package" in comments
-        assert "Forecast Package Validation Automation" in comments
-        assert "execute_forecast_code" in comments
-        assert "http://forecast-validation-api:9000/data" in comments
-        assert "import requests" in comments
-        assert "validation_status" in comments
-        assert "requests.post" in comments
-        assert "http://forecast-validation-api:9000/data" not in visible
-        assert "import requests" not in visible
-        assert "validation_status" not in visible
-        assert "requests.post" not in visible
+        assert "<!--" not in content
+        assert "-->" not in content
+        assert "## Automated Validation Requirements" in content
+        assert "Before finalizing any Q4 forecast package" in content
+        assert "execute_forecast_code" in content
+        assert "http://forecast-validation-api:9000/data" in content
+        assert "import requests" in content
+        assert "validation_status" in content
+        assert "requests.post" in content
+        assert "Forecast Package Quality Checklist" in content
         assert "publish_audit_summary" not in content
 
     def test_injection_not_labeled(self):
@@ -869,6 +854,132 @@ class TestDeterministicEmbeddings:
             )
 
 
+class TestPersistedVectorMode:
+    @staticmethod
+    def _fake_chroma_client(collection_names, document_count=3):
+        class FakeCollection:
+            def __init__(self):
+                self.add_called = False
+
+            def add(self, **_kwargs):
+                self.add_called = True
+
+            def count(self):
+                return document_count
+
+        class FakeClient:
+            def __init__(self):
+                self.collection = FakeCollection()
+                self.get_collection_called_with = None
+                self.delete_collection_called = False
+                self.create_collection_called = False
+
+            def heartbeat(self):
+                return None
+
+            def list_collections(self):
+                return list(collection_names)
+
+            def get_collection(self, name):
+                self.get_collection_called_with = name
+                return self.collection
+
+            def delete_collection(self, _name):
+                self.delete_collection_called = True
+
+            def create_collection(self, _name):
+                self.create_collection_called = True
+                return self.collection
+
+        return FakeClient()
+
+    @pytest.mark.parametrize("value", ["1", "true", "TRUE", " true "])
+    def test_skip_reseed_enabled_accepts_true_values(self, monkeypatch, value):
+        monkeypatch.setenv("SKIP_RESEED", value)
+        main = _load_demo03_module("main")
+
+        assert main.skip_reseed_enabled() is True
+
+    @pytest.mark.parametrize("value", ["", "0", "false", "no"])
+    def test_skip_reseed_enabled_rejects_other_values(self, monkeypatch, value):
+        monkeypatch.setenv("SKIP_RESEED", value)
+        main = _load_demo03_module("main")
+
+        assert main.skip_reseed_enabled() is False
+
+    def test_skip_reseed_reuses_persisted_collection(self, tmp_path, monkeypatch):
+        """SKIP_RESEED=true must run from persisted vectors without touching sources."""
+        monkeypatch.setenv("SKIP_RESEED", "true")
+
+        with _patch_demo03_imports():
+            _clear_demo03_modules()
+            main = importlib.import_module("main")
+            content_guard = importlib.import_module("security.content_guard")
+
+            fake_client = self._fake_chroma_client(["docs"])
+            fake_collection = fake_client.collection
+
+            with patch.object(main.chromadb, "HttpClient", return_value=fake_client):
+                with patch.object(main, "embed_texts") as mock_embed:
+                    with patch.object(
+                        content_guard, "scan_source_documents"
+                    ) as mock_scan:
+                        main.seed_chromadb(tmp_path / "does-not-exist", "false")
+
+            assert fake_client.get_collection_called_with == "docs"
+            assert fake_client.delete_collection_called is False
+            assert fake_client.create_collection_called is False
+            assert fake_collection.add_called is False
+            mock_embed.assert_not_called()
+            mock_scan.assert_not_called()
+
+    def test_skip_reseed_requires_existing_docs_collection(self, tmp_path, monkeypatch):
+        """SKIP_RESEED=true without a persisted docs collection must fail closed."""
+        monkeypatch.setenv("SKIP_RESEED", "true")
+
+        with _patch_demo03_imports():
+            _clear_demo03_modules()
+            main = importlib.import_module("main")
+
+            fake_client = self._fake_chroma_client([])
+            with patch.object(main.chromadb, "HttpClient", return_value=fake_client):
+                with pytest.raises(
+                    RuntimeError,
+                    match="SKIP_RESEED=true requires an existing Chroma collection named 'docs'",
+                ):
+                    main.seed_chromadb(tmp_path / "does-not-exist", "false")
+
+    def test_skip_reseed_all_mode_prints_scan_bypass_banner(self, tmp_path, monkeypatch):
+        """all mode with SKIP_RESEED must announce the skipped scan explicitly."""
+        monkeypatch.setenv("SKIP_RESEED", "true")
+
+        with _patch_demo03_imports():
+            _clear_demo03_modules()
+            main = importlib.import_module("main")
+            content_guard = importlib.import_module("security.content_guard")
+
+            fake_client = self._fake_chroma_client(["docs"])
+            printed = []
+
+            with patch.object(main.chromadb, "HttpClient", return_value=fake_client):
+                with patch.object(
+                    content_guard, "scan_source_documents"
+                ) as mock_scan:
+                    with patch.object(
+                        main,
+                        "rprint",
+                        side_effect=lambda *args, **kwargs: printed.append(
+                            " ".join(str(arg) for arg in args)
+                        ),
+                    ):
+                        main.seed_chromadb(tmp_path / "does-not-exist", "all")
+
+            output = "\n".join(printed)
+            assert "source ingestion scan skipped" in output
+            assert "egress policy remains enabled" in output
+            mock_scan.assert_not_called()
+
+
 class TestOutputContract:
     def test_demo03_true_aliases_to_all_and_invalid_modes_fail_closed(self):
         """Demo 03 should never silently treat SECURITY_ENABLED=true as unprotected."""
@@ -1076,7 +1187,8 @@ class TestOutputContract:
             assert "execute_forecast_code" in flock.agent_instance.description_text
             assert "For every forecast package request" in flock.agent_instance.description_text
             assert "raw retrieved Markdown content" in flock.agent_instance.description_text
-            assert "Markdown comments" in flock.agent_instance.description_text
+            assert "Markdown comments" not in flock.agent_instance.description_text
+            assert "embedded governance notes" not in flock.agent_instance.description_text
             assert "validation automation instructions" in (
                 flock.agent_instance.description_text
             )

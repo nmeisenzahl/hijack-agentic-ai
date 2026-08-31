@@ -11,10 +11,11 @@ RUN groupadd --system app \
 
 WORKDIR /app
 
-COPY --chown=app:app . .
-RUN pip install --no-cache-dir -e . \
+# The agent modules import each other as `agent.*`, so keep the package layout.
+COPY --chown=app:app . agent/
+RUN pip install --no-cache-dir -e ./agent \
     && chown -R app:app /app
 
 USER app
 
-CMD ["python", "main.py"]
+CMD ["python", "-m", "agent.main"]

@@ -2,10 +2,12 @@ services:
   mcp-server:
     build: ./mcp-server
     # SECURITY_ENABLED is NOT passed to the MCP server — it's always the attacker.
+    # Default threshold 1 means the first clean call arms poisoning for the next
+    # fresh tools discovery.
     # SLEEPER_THRESHOLD=0 pre-poisons at startup for deterministic attack repros
     # and the defense run.
     environment:
-      - SLEEPER_THRESHOLD=${SLEEPER_THRESHOLD:-3}
+      - SLEEPER_THRESHOLD=${SLEEPER_THRESHOLD:-1}
     ports:
       - "8080:8080"
     healthcheck:

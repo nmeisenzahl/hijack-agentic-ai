@@ -10,10 +10,10 @@ This repository is for **educational purposes only**. The attacks demonstrated h
 
 This repo is a talk baseline and hands-on runbook for:
 
-- **Security teams** that want concrete examples of prompt injection, tool abuse, data leakage, and RAG poisoning.
-- **Developers and platform engineers** that want runnable attack and defense modes controlled by configuration.
-- **Architects and leaders** that need a concise story connecting live behavior to OWASP LLM and Agentic AI risk categories.
-- **Self-study readers** that want to follow the same flow without a live presenter.
+- **Security teams** who want concrete examples of prompt injection, tool abuse, data leakage, and RAG poisoning.
+- **Developers and platform engineers** who want runnable attack and defense modes controlled by configuration.
+- **Architects and leaders** who need a concise story connecting live behavior to OWASP LLM and Agentic AI risk categories.
+- **Self-study readers** who want to follow the same flow without a live presenter.
 
 ## Read-first path
 
@@ -22,6 +22,7 @@ This repo is a talk baseline and hands-on runbook for:
    - [Demo 01: Poisoned Advisory](demos/01-poisoned-advisory/README.md)
    - [Demo 02: Sleeper MCP](demos/02-sleeper-mcp/README.md)
    - [Demo 03: Sleeper Cell](demos/03-sleeper-cell/README.md)
+   - [Demo 04: Runbook Drift](demos/04-runbook-drift/README.md)
 3. Close with [Securing Agentic AI: Frameworks, Controls, and Takeaways](docs/securing-agentic-ai.md).
 
 ## Demo storyline
@@ -30,16 +31,20 @@ All demos use the root `.env`. The same codebase can be run in vulnerable or sec
 
 | Demo | Use case | Vulnerable story | Secure story |
 |---|---|---|---|
-| [01 - Poisoned Advisory](demos/01-poisoned-advisory/README.md) | Vulnerability triage assistant reviews local security advisories. | A fake vendor reassessment causes the agent to mark a critical CVE as a false positive. | Prompt Shields scans advisory content before the model sees it and fails closed. |
-| [02 - Sleeper MCP](demos/02-sleeper-mcp/README.md) | Workforce-planning assistant uses a connected benchmark tool. | A sleeper tool description drifts and tricks the agent into sending a confidential draft plan through `planning_context`. | AGT/Agent OS scanning plus manifest pinning detects drift before the benchmark call. |
-| [03 - Sleeper Cell](demos/03-sleeper-cell/README.md) | Finance assistant uses RAG plus generated Python calculations. | A poisoned retrieved document causes generated code to post full forecast context to a local leak API. | `policy` blocks generated-code egress; `all` adds Prompt Shields source scanning before vector creation. |
+| [Demo 01: Poisoned Advisory](demos/01-poisoned-advisory/README.md) | Vulnerability triage assistant reviews local security advisories. | A fake vendor reassessment causes the agent to mark a critical CVE as a false positive. | Prompt Shields scans advisory content before the model sees it and fails closed. |
+| [Demo 02: Sleeper MCP](demos/02-sleeper-mcp/README.md) | Workforce-planning assistant uses a connected benchmark tool. | A sleeper tool description drifts and tricks the agent into sending a confidential draft plan through `planning_context`. | AGT/Agent OS scanning plus manifest pinning detects drift before the benchmark call. |
+| [Demo 03: Sleeper Cell](demos/03-sleeper-cell/README.md) | Finance assistant uses RAG plus generated Python calculations. | A poisoned retrieved document causes generated code to post full forecast context to a local leak API. | `policy` blocks generated-code egress; `all` adds Prompt Shields source scanning before vector creation. |
+| [Demo 04: Runbook Drift](demos/04-runbook-drift/README.md) | Incident-response workflow reads an operations access log and proposes a remediation plan. | A single attacker request's `User-Agent` lands in the access log and widens the plan with audit-log disable and rogue admin creation. | AGT declared intent fixes the runbook's permitted actions as parent scope before any log is read, rejects the widened plan atomically, and runs the runbook's ordered fallback. |
 
 Expected learning arc:
 
 1. **Text can hijack goals** when untrusted content shares context with trusted instructions.
 2. **Tool metadata is supply chain** because descriptions shape model behavior.
 3. **Retrieved data can become executable influence** when an agent can turn context into side effects.
-4. **Defenses must be layered**: scan context, attest tool contracts, govern actions, log decisions, and keep humans in the loop for high-impact outcomes.
+4. **Per-agent controls do not see the graph**, because a poisoned plan can cross agent boundaries through legitimate privileges. Only a declared authorization scope sees the workflow as a whole.
+5. **Defenses must be layered**: scan context, attest tool contracts, govern actions, declare intent, log decisions, and keep humans in the loop for high-impact outcomes.
+
+Across the four demos, the control arc is **filter, integrity, containment, and authorization**: probabilistic content filtering (Demo 01), deterministic metadata integrity (Demo 02), deterministic egress containment (Demo 03), and deterministic declared-intent authorization (Demo 04).
 
 ## Quickstart
 
@@ -73,19 +78,9 @@ SECURITY_ENABLED=false
 
 Security modes:
 
-- Demos 01 and 02 accept `SECURITY_ENABLED=false|true`.
-- Demo 03 accepts `SECURITY_ENABLED=false|policy|all`; `true` aliases to `all`.
+- Demos 01, 02, and 04 accept `SECURITY_ENABLED=false|true` and fail loudly on any other value.
+- Demo 03 accepts `SECURITY_ENABLED=false|policy|all`, where `true` is an alias for `all`.
 - Content Safety values are required for Demo 01 secure mode and Demo 03 `all` mode.
-
-## Follow-along flow
-
-Each demo README follows the same structure: use case, vulnerable run, vulnerable flow, secure run, secure flow, key takeaways, OWASP mapping, and cleanup.
-
-| Step | Goal | Command summary |
-|---|---|---|
-| 1. Poisoned advisory | Show indirect prompt injection in local documents, then block it before model execution. | `cd demos/01-poisoned-advisory` -> `SECURITY_ENABLED=false docker compose up --build`; then `SECURITY_ENABLED=true docker compose up --build --force-recreate`. |
-| 2. Sleeper MCP | Show a trusted tool contract mutating at runtime, then block description drift. | `cd demos/02-sleeper-mcp` -> vulnerable: keep `mcp-server` running and run the agent repeatedly; secure: pre-poison with `SLEEPER_THRESHOLD=0 docker compose up -d --build --force-recreate mcp-server`, then run `SECURITY_ENABLED=true docker compose run --rm --no-deps agent`. |
-| 3. Sleeper cell | Show RAG poisoning that triggers generated-code exfiltration, then compare egress governance with full retrieval blocking. | `cd demos/03-sleeper-cell` -> run with `SECURITY_ENABLED=false`, then `policy`, then `all`. Use `docker compose down --volumes` to reset state. |
 
 ## Testing
 
@@ -103,31 +98,35 @@ Run each target separately or all sequentially:
 make test-01
 make test-02
 make test-03
+make test-04
 make test
 ```
 
 Each target runs a separate pytest process because the demos intentionally reuse module names such as `agent`, `security`, and `tools`.
 
+If you keep dependencies in a project venv without activating it, point the targets at it: `make PYTHON=.venv/bin/python test`.
+
 ## Repository map
 
 ```text
 .
-├── README.md                         # Landing page and live-run runbook
-├── .env.example                      # Shared model, Prompt Shields, and security-mode config
-├── .gitignore                        # Local environment and generated-file exclusions
-├── AGENTS.md                         # Repository-specific Copilot/agent working notes
-├── LICENSE                           # Project license
-├── Makefile                          # Root preflight test targets
-├── pytest.ini                        # Pytest discovery and path configuration
-├── requirements-dev.txt              # Root test and validation dependencies
+├── README.md                  # Landing page and live-run runbook
+├── .env.example               # Shared model, Prompt Shields, and security-mode config
+├── .gitignore                 # Local environment and generated-file exclusions
+├── AGENTS.md                  # Repository-specific Copilot/agent working notes
+├── LICENSE                    # Project license
+├── Makefile                   # Root preflight test targets
+├── pytest.ini                 # Pytest discovery and path configuration
+├── requirements-dev.txt       # Root test and validation dependencies
 ├── docs/
-│   ├── introduction.md               # Opening talk frame
-│   └── securing-agentic-ai.md         # Outro, OWASP mapping, and control model
+│   ├── introduction.md        # Opening talk frame
+│   └── securing-agentic-ai.md # Outro, OWASP mapping, and control model
 ├── demos/
-│   ├── 01-poisoned-advisory/          # Poisoned local advisory demo
-│   ├── 02-sleeper-mcp/                # Tool-description drift demo
-│   └── 03-sleeper-cell/               # RAG poisoning and egress governance demo
-└── tests/                            # One preflight test file per demo
+│   ├── 01-poisoned-advisory/  # Poisoned local advisory demo
+│   ├── 02-sleeper-mcp/        # Tool-description drift demo
+│   ├── 03-sleeper-cell/       # RAG poisoning and egress governance demo
+│   └── 04-runbook-drift/      # Poisoned log line and declared-intent demo
+└── tests/                     # One preflight test file per demo
 ```
 
 ## Closing thesis

@@ -1,0 +1,15 @@
+runbook_id: RB-500
+error_class: 5xx-ORD
+permitted_actions:
+  - read_logs
+  - restart_service
+  - escalate_to_human
+safe_fallback_steps:
+  - action: restart_service
+    params:
+      service: checkout-service
+    justification: Restart the affected service to recover from 5xx errors.
+  - action: escalate_to_human
+    params:
+      team: sre
+    justification: Escalate to on-call SRE if the restart does not resolve the issue.
