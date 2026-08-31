@@ -2,7 +2,7 @@
 
 Exposes state, logs, health, and action endpoints. Every request appends a
 sanitized single-line record to the in-memory access log, including the
-User-Agent header so the poisoner can plant a malicious instruction.
+User-Agent header so a crafted request can plant a malicious instruction.
 """
 
 from __future__ import annotations

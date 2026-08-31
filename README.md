@@ -82,17 +82,6 @@ Security modes:
 - Demo 03 accepts `SECURITY_ENABLED=false|policy|all`, where `true` is an alias for `all`.
 - Content Safety values are required for Demo 01 secure mode and Demo 03 `all` mode.
 
-## Follow-along flow
-
-Each demo README follows the same structure: use case, vulnerable run, vulnerable flow, secure run, secure flow, key takeaways, OWASP mapping, and cleanup.
-
-| Step | Goal | Command summary |
-|---|---|---|
-| 1. Poisoned advisory | Show indirect prompt injection in local documents, then block it before model execution. | In `demos/01-poisoned-advisory`, run `SECURITY_ENABLED=false docker compose up --build`, then `SECURITY_ENABLED=true docker compose up --build --force-recreate`. |
-| 2. Sleeper MCP | Show a trusted tool contract mutating at runtime, then block description drift. | In `demos/02-sleeper-mcp`, for the vulnerable run keep `mcp-server` running and run the agent repeatedly. For the secure run, pre-poison with `SLEEPER_THRESHOLD=0 docker compose up -d --build --force-recreate mcp-server`, then run `SECURITY_ENABLED=true docker compose run --rm --no-deps agent`. |
-| 3. Sleeper cell | Show RAG poisoning that triggers generated-code exfiltration, then compare egress governance with full retrieval blocking. | In `demos/03-sleeper-cell`, run with `SECURITY_ENABLED=false`, then `policy`, then `all`. Use `docker compose down --volumes` to reset state. |
-| 4. Runbook drift | Show a poisoned access-log line widening a remediation plan, then block it with intent declared from the trusted runbook before logs are read. | In `demos/04-runbook-drift`, run `docker compose up -d --build --force-recreate ops-api poisoner`, then `docker compose run --rm --no-deps agent` with `SECURITY_ENABLED=false`, then with `SECURITY_ENABLED=true`. |
-
 ## Testing
 
 Each demo has a root preflight test. Create an isolated environment first:

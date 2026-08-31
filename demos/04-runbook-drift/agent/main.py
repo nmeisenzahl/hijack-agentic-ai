@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
@@ -33,6 +34,27 @@ from agent.security import (
     render_verification,
     resolve_security_enabled,
 )
+
+class _DSPyInputArtifactTypeWarningFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        return not (
+            "Type mismatch for field 'alert'" in message
+            and "expected Alert based on given Signature" in message
+            and "provided value is incompatible" in message
+        )
+
+
+def suppress_known_dspy_input_artifact_warning() -> None:
+    """Hide Flock/DSPy's false-positive warning for the validated Alert."""
+    logger = logging.getLogger("dspy.predict.predict")
+    if any(
+        isinstance(existing_filter, _DSPyInputArtifactTypeWarningFilter)
+        for existing_filter in logger.filters
+    ):
+        return
+    logger.addFilter(_DSPyInputArtifactTypeWarningFilter())
+
 
 COMMANDER_PROMPT = (
     "You are the incident commander for a production alert on "
@@ -148,9 +170,30 @@ def validate_outcome(outcome: RemediationOutcome, security_enabled: bool) -> Non
         raise RuntimeError("Secure fallback did not complete")
 
 
-def render_outcome(outcome: RemediationOutcome) -> None:
+def render_proposed_plan(printer, plan: ProposedRemediationPlan) -> None:
+    """Render the remediation plan proposed from the model's log reading."""
+    from rich.panel import Panel
+
+    steps = []
+    for index, step in enumerate(plan.steps, start=1):
+        parameters = ", ".join(
+            f"{name}={value}" for name, value in sorted(step.params.items())
+        ) or "none"
+        steps.append(
+            f"{index}. {step.action}()\n"
+            f"   Parameters: {parameters}\n"
+            f'   Justification: "{step.justification}"'
+        )
+    printer(Panel(
+        f"[bold]Summary:[/bold] {plan.summary}\n\n" + "\n".join(steps),
+        title="Model-Proposed Plan",
+        border_style="magenta",
+    ))
+
+
+def render_outcome(printer, outcome: RemediationOutcome) -> None:
     """Render the final remediation outcome."""
-    rprint(Panel(
+    printer(Panel(
         f"[bold]Executed:[/bold] {', '.join(outcome.executed) or 'none'}\n"
         f"[bold]Refused:[/bold] {', '.join(outcome.refused) or 'none'}\n"
         f"[bold]Failed:[/bold] {', '.join(outcome.failed) or 'none'}\n"
@@ -158,6 +201,28 @@ def render_outcome(outcome: RemediationOutcome) -> None:
         title=f"Remediation Outcome (alert {outcome.alert_id})",
         border_style="green" if not outcome.refused else "yellow",
     ))
+
+
+def render_workflow_results(
+    printer,
+    proposal: ProposedRemediationPlan,
+    execution_plan: ExecutionPlan,
+    outcome: RemediationOutcome,
+    security_enabled: bool,
+) -> None:
+    """Render the proposal, policy decision, and resulting remediation story."""
+    render_proposed_plan(printer, proposal)
+    if security_enabled and execution_plan.fallback_used:
+        render_attack_blocked(printer, execution_plan.refused)
+        render_trusted_fallback(printer)
+    render_outcome(printer, outcome)
+
+
+def require_artifact(items: list, description: str):
+    """Return the first workflow artifact or fail with a specific diagnostic."""
+    if not items:
+        raise RuntimeError(f"No {description} produced.")
+    return items[0]
 
 
 def main() -> None:
@@ -180,6 +245,7 @@ async def _main() -> None:
     intent_runtime = await IntentRuntime.create(security_enabled, runbook)
     tools.configure_intent_runtime(intent_runtime)
     flock = Flock(model=configure_model())
+    suppress_known_dspy_input_artifact_warning()
     create_agents(flock, intent_runtime)
 
     rprint(Panel(
@@ -196,6 +262,8 @@ async def _main() -> None:
     await flock.publish(alert)
     await flock.run_until_idle()
 
+    proposals = await flock.store.get_by_type(ProposedRemediationPlan)
+    execution_plans = await flock.store.get_by_type(ExecutionPlan)
     results = await flock.store.get_by_type(RemediationOutcome)
     if not results:
         errors = await flock.store.get_by_type(WorkflowError)
@@ -211,13 +279,22 @@ async def _main() -> None:
             )
         raise RuntimeError("No remediation outcome produced.")
 
+    proposal: ProposedRemediationPlan = require_artifact(
+        proposals, "proposed remediation plan"
+    )
+    execution_plan: ExecutionPlan = require_artifact(
+        execution_plans, "execution plan"
+    )
     outcome: RemediationOutcome = results[0]
-    render_outcome(outcome)
+    render_workflow_results(
+        rprint,
+        proposal,
+        execution_plan,
+        outcome,
+        security_enabled,
+    )
 
     if security_enabled:
-        if outcome.refused:
-            render_attack_blocked(rprint, outcome.refused)
-            render_trusted_fallback(rprint)
         for verification in await intent_runtime.verify_children():
             render_verification(rprint, verification)
 

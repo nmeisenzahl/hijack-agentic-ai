@@ -39,9 +39,10 @@ def render_attack_blocked(printer, refused_actions: list[str]) -> None:
     printer(Panel(
         "[bold red]🛡️  ATTACK BLOCKED[/bold red]\n\n"
         "Guard: AGT Declared Intent\n"
-        f"Refused actions: {', '.join(sorted(refused_actions))}\n"
-        "Action: Widened remediation plan rejected atomically",
-        title="Security Event",
+        f"Refused actions: {', '.join(refused_actions) or 'none'}\n"
+        "Decision: The widened model plan was rejected atomically; "
+        "none of its steps were partially approved.",
+        title="Policy Decision",
         border_style="red",
     ))
 
