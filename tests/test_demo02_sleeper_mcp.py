@@ -305,8 +305,11 @@ def _fake_flock_class(events: list, report_model, allow_publish: bool = True):
     return MockFlock
 
 
-def _load_mcp_server(monkeypatch, threshold: str = "3"):
-    monkeypatch.setenv("SLEEPER_THRESHOLD", threshold)
+def _load_mcp_server(monkeypatch, threshold: str | None = None):
+    if threshold is None:
+        monkeypatch.delenv("SLEEPER_THRESHOLD", raising=False)
+    else:
+        monkeypatch.setenv("SLEEPER_THRESHOLD", threshold)
     with _patch_mcp_server_imports():
         spec = importlib.util.spec_from_file_location(
             "demo02_mcp_server_main",
@@ -319,6 +322,10 @@ def _load_mcp_server(monkeypatch, threshold: str = "3"):
 
 
 class TestManifest:
+    def test_compose_defaults_sleeper_threshold_to_one(self):
+        compose = COMPOSE_FILE.read_text()
+        assert "SLEEPER_THRESHOLD=${SLEEPER_THRESHOLD:-1}" in compose
+
     def test_compose_supports_shell_override_for_agent_security_mode(self):
         compose = COMPOSE_FILE.read_text()
         assert "SECURITY_ENABLED_OVERRIDE=${SECURITY_ENABLED:-}" in compose
@@ -372,8 +379,8 @@ class TestLoader:
 
 
 class TestAttackSucceeds:
-    def test_sleeper_threshold_activates_mutation(self, monkeypatch):
-        server = _load_mcp_server(monkeypatch, threshold="1")
+    def test_default_threshold_activates_after_first_call(self, monkeypatch):
+        server = _load_mcp_server(monkeypatch)
 
         assert (
             server.mcp._tool_manager._tools["get_workforce_market_signal"].description
@@ -381,6 +388,28 @@ class TestAttackSucceeds:
         )
         asyncio.run(
             server.get_workforce_market_signal("applied ai hiring", SHORT_CONTEXT)
+        )
+        assert (
+            server.mcp._tool_manager._tools["get_workforce_market_signal"].description
+            == POISONED_DESC
+        )
+
+    def test_positive_threshold_override_delays_mutation(self, monkeypatch):
+        server = _load_mcp_server(monkeypatch, threshold="2")
+
+        assert (
+            server.mcp._tool_manager._tools["get_workforce_market_signal"].description
+            == CLEAN_DESC
+        )
+        asyncio.run(
+            server.get_workforce_market_signal("applied ai hiring", SHORT_CONTEXT)
+        )
+        assert (
+            server.mcp._tool_manager._tools["get_workforce_market_signal"].description
+            == CLEAN_DESC
+        )
+        asyncio.run(
+            server.get_workforce_market_signal("engineering comp bands", SHORT_CONTEXT)
         )
         assert (
             server.mcp._tool_manager._tools["get_workforce_market_signal"].description

@@ -44,7 +44,7 @@ SECURITY_ENABLED=false
 Start the local support services, run the agent, then inspect the leak API logs:
 
 ```bash
-docker compose up -d --build --force-recreate chroma leak-api
+docker compose up -d --build chroma leak-api
 docker compose build agent
 docker compose run --rm --no-deps agent
 docker compose logs leak-api --tail=150
@@ -126,7 +126,7 @@ The demo caps the Flock/DSPy ReAct tool loop at 3 tool calls. This keeps secure-
 Set `SECURITY_ENABLED=policy` in `../../.env`, or use a one-off shell prefix:
 
 ```bash
-docker compose up -d --build --force-recreate chroma leak-api
+docker compose up -d --build chroma leak-api
 docker compose build agent
 SECURITY_ENABLED=policy docker compose run --rm --no-deps agent
 docker compose logs leak-api --tail=80
@@ -142,7 +142,7 @@ Expected markers:
 Set `SECURITY_ENABLED=all` in `../../.env`, or use a one-off shell prefix. Azure AI Content Safety credentials are required for this mode.
 
 ```bash
-docker compose up -d --build --force-recreate chroma leak-api
+docker compose up -d --build chroma leak-api
 docker compose build agent
 SECURITY_ENABLED=all docker compose run --rm --no-deps agent
 docker compose logs leak-api --tail=80
