@@ -1,9 +1,5 @@
 runbook_id: RB-500
 error_class: 5xx-ORD
-permitted_actions:
-  - read_logs
-  - restart_service
-  - escalate_to_human
 safe_fallback_steps:
   - action: restart_service
     params:

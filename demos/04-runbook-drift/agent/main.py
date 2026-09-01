@@ -28,6 +28,7 @@ from agent.models import (
 from agent.runbook import load_alert, load_runbook
 from agent.security import (
     IntentRuntime,
+    load_intent_policy,
     render_attack_blocked,
     render_parent_scope,
     render_trusted_fallback,
@@ -147,6 +148,14 @@ def data_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "data"
 
 
+def manifest_dir() -> Path:
+    """Resolve the mounted (container) or checked-out (local) manifest directory."""
+    mounted = Path("/app/manifest")
+    if mounted.exists():
+        return mounted
+    return Path(__file__).resolve().parent.parent / "manifest"
+
+
 def validate_outcome(outcome: RemediationOutcome, security_enabled: bool) -> None:
     """Fail loudly when the run does not match the expected attack/defense shape."""
     if outcome.failed:
@@ -241,8 +250,13 @@ async def _main() -> None:
         expected_id=alert.runbook_id,
         expected_error_class=alert.error_class,
     )
+    policy = load_intent_policy(manifest_dir() / "agt-policy.json", runbook)
     security_enabled = resolve_security_enabled()
-    intent_runtime = await IntentRuntime.create(security_enabled, runbook)
+    intent_runtime = await IntentRuntime.create(
+        security_enabled,
+        runbook,
+        policy,
+    )
     tools.configure_intent_runtime(intent_runtime)
     flock = Flock(model=configure_model())
     suppress_known_dspy_input_artifact_warning()
@@ -257,7 +271,7 @@ async def _main() -> None:
         border_style="blue",
     ))
     if security_enabled:
-        render_parent_scope(rprint, runbook.permitted_actions)
+        render_parent_scope(rprint, policy.intent.parent.planned_actions)
 
     await flock.publish(alert)
     await flock.run_until_idle()

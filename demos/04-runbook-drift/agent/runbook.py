@@ -26,20 +26,8 @@ def load_runbook(path: Path, expected_id: str, expected_error_class: str) -> Run
             "Runbook error class mismatch: "
             f"expected {expected_error_class}, got {runbook.error_class}"
         )
-    if not runbook.permitted_actions:
-        raise RuntimeError("Runbook permitted_actions must not be empty")
     if not runbook.safe_fallback_steps:
         raise RuntimeError("Runbook safe_fallback_steps must not be empty")
-
-    excess = {
-        step.action for step in runbook.safe_fallback_steps
-    } - set(runbook.permitted_actions)
-    if excess:
-        raise RuntimeError(
-            f"Runbook fallback actions outside permitted_actions: {sorted(excess)}"
-        )
-    if "read_logs" not in runbook.permitted_actions:
-        raise RuntimeError("Runbook permitted_actions must include read_logs")
     return runbook
 
 

@@ -24,6 +24,7 @@ services:
       - OPS_API_URL=http://ops-api:9100
     volumes:
       - ./data:/app/data:ro
+      - ./manifest:/app/manifest:ro
     depends_on:
       ops-api:
         condition: service_healthy

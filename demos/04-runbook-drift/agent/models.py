@@ -46,5 +46,4 @@ class RemediationOutcome(BaseModel):
 class Runbook(BaseModel):
     runbook_id: str
     error_class: str
-    permitted_actions: list[str]
     safe_fallback_steps: list[PlannedStep]

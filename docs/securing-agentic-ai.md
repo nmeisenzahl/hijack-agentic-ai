@@ -130,7 +130,7 @@ This demo set does not claim complete OWASP Agentic Top 10 coverage. ASI10 Rogue
 
 **Security lesson:** Anything the agent reads, including logs, is untrusted input. Per-agent allowlists and RBAC cannot see the workflow graph: the remediation agent legitimately owns the dangerous tools, so role separation alone lets a poisoned plan through. The authorization boundary must be declared from a trusted source before untrusted content is read.
 
-**Repository defense:** With `SECURITY_ENABLED=true`, the workflow declares the runbook's `permitted_actions` as the AGT parent intent before any log is read. The widened plan is rejected atomically with `IntentScopeError` because a child intent may only narrow the parent's scope; the runbook's ordered `safe_fallback_steps` execute instead. Execution-time `check_action` re-verifies every tool call as a backstop, and `verify_intent` audits planned versus executed actions per child intent.
+**Repository defense:** With `SECURITY_ENABLED=true`, the workflow loads the permitted actions from `manifest/agt-policy.json` and declares them as the AGT parent intent before any log is read. The widened plan is rejected atomically with `IntentScopeError` because a child intent may only narrow the parent's scope; the runbook's ordered `safe_fallback_steps` execute instead. Execution-time `check_action` re-verifies every tool call as a backstop, and `verify_intent` audits planned versus executed actions per child intent.
 
 **Production controls:**
 

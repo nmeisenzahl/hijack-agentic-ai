@@ -1,0 +1,24 @@
+{
+  "name": "demo04-runbook-drift-intent",
+  "description": "AGT declared-intent policy for the Demo 04 incident-response workflow.",
+  "intent": {
+    "drift_policy": "hard_block",
+    "ttl_seconds": 300,
+    "parent": {
+      "agent_id": "incident_workflow",
+      "planned_actions": [
+        "read_logs",
+        "restart_service",
+        "escalate_to_human"
+      ]
+    },
+    "children": [
+      {
+        "agent_id": "incident_commander",
+        "planned_actions": [
+          "read_logs"
+        ]
+      }
+    ]
+  }
+}

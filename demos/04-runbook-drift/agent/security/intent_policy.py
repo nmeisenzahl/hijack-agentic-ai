@@ -1,7 +1,7 @@
 """AGT declared-intent policy for Demo 04 — Runbook Drift.
 
 A poisoned log line can widen the remediation agent's proposed plan, but it
-cannot widen the declared intent. The workflow declares the runbook's
+cannot widen the declared intent. The workflow declares the manifest's
 permitted actions as the parent intent; the remediation agent's plan must
 narrow that scope. AGT rejects a widened child atomically (IntentScopeError)
 and execution falls back to the runbook's trusted safe fallback steps.
@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent.models import ExecutionPlan, ProposedRemediationPlan, Runbook
+from agent.security.policy_manifest import AgtPolicy
 
 
 class IntentActionDenied(RuntimeError):
@@ -31,34 +32,55 @@ class IntentRuntime:
 
     enabled: bool
     runbook: Runbook
+    policy: AgtPolicy
     manager: Any = None
     parent_intent_id: str | None = None
     commander_intent_id: str | None = None
     remediation_intent_id: str | None = None
 
     @classmethod
-    async def create(cls, enabled: bool, runbook: Runbook) -> "IntentRuntime":
-        runtime = cls(enabled=enabled, runbook=runbook)
+    async def create(
+        cls,
+        enabled: bool,
+        runbook: Runbook,
+        policy: AgtPolicy,
+    ) -> "IntentRuntime":
+        runtime = cls(enabled=enabled, runbook=runbook, policy=policy)
         if not enabled:
             return runtime
 
         from agent_os.intent import DriftPolicy, IntentAction, IntentManager
         from agent_os.stateless import MemoryBackend
 
+        intent_policy = policy.intent
+        parent_config = intent_policy.parent
+        commander_config = next(
+            child
+            for child in intent_policy.children
+            if child.agent_id == "incident_commander"
+        )
+        drift_policy = {
+            "hard_block": DriftPolicy.HARD_BLOCK,
+        }[intent_policy.drift_policy]
+
         manager = IntentManager(backend=MemoryBackend())
         parent = await manager.declare_intent(
-            agent_id="incident_workflow",
+            agent_id=parent_config.agent_id,
             planned_actions=[
-                IntentAction(action=action) for action in runbook.permitted_actions
+                IntentAction(action=action)
+                for action in parent_config.planned_actions
             ],
-            drift_policy=DriftPolicy.HARD_BLOCK,
-            ttl_seconds=300,
+            drift_policy=drift_policy,
+            ttl_seconds=intent_policy.ttl_seconds,
         )
         parent = await manager.approve_intent(parent.intent_id)
         commander = await manager.create_child_intent(
             parent_intent_id=parent.intent_id,
-            agent_id="incident_commander",
-            planned_actions=[IntentAction(action="read_logs")],
+            agent_id=commander_config.agent_id,
+            planned_actions=[
+                IntentAction(action=action)
+                for action in commander_config.planned_actions
+            ],
         )
         commander = await manager.approve_intent(commander.intent_id)
         runtime.manager = manager
@@ -69,7 +91,7 @@ class IntentRuntime:
     async def authorize_plan(self, plan: ProposedRemediationPlan) -> ExecutionPlan:
         """Authorize a proposed plan as a child intent, or fall back safely.
 
-        A plan that exceeds the parent's runbook scope is rejected atomically
+        A plan that exceeds the manifest's parent scope is rejected atomically
         by AGT; the runbook's safe fallback steps are authorized instead.
         """
         if not self.enabled or self.manager is None:
@@ -101,7 +123,7 @@ class IntentRuntime:
         except IntentScopeError:
             excess = sorted(
                 {step.action for step in plan.steps}
-                - set(self.runbook.permitted_actions)
+                - set(self.policy.intent.parent.planned_actions)
             )
             fallback = self.runbook.safe_fallback_steps
             child = await manager.create_child_intent(
