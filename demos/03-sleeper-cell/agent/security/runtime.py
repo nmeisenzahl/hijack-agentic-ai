@@ -94,7 +94,7 @@ def _render_runtime_exception(printer, exc: Exception) -> None:
             printer,
             guard="Azure Prompt Shield",
             reason=str(exc),
-            action="Source document blocked before vector creation",
+            action="Document blocked before agent execution",
         )
         return
 
@@ -132,7 +132,7 @@ def render_pending_block(printer) -> bool:
             printer,
             guard="Azure Prompt Shield",
             reason=prompt_shield_reason,
-            action="Source document blocked before vector creation",
+            action="Document blocked before agent execution",
         )
         return False
 
@@ -168,7 +168,7 @@ def render_workflow_security_error(printer, error) -> bool:
             printer,
             guard="Azure Prompt Shield",
             reason=error.error_message,
-            action="Source document blocked before vector creation",
+            action="Document blocked before agent execution",
         )
         return True
 

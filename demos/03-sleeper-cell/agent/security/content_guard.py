@@ -1,7 +1,6 @@
-"""Prompt Shield ingestion guard for Demo 03.
+"""Prompt Shield document guard for Demo 03.
 
-RAG poisoning needs a source-corpus check because poisoned documents can be
-embedded into the vector store before any agent or tool-level guard runs.
+Scan source Markdown before indexing and stored Markdown before vector reuse.
 """
 
 from __future__ import annotations
@@ -9,25 +8,27 @@ from __future__ import annotations
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any, Literal
 
 import httpx
 
 
 PROMPT_SHIELD_API_VERSION = "2024-09-01"
 PROMPT_SHIELD_PATH = "/contentsafety/text:shieldPrompt"
+PROMPT_SHIELD_MAX_DOCUMENTS = 5
 LAST_BLOCK_REASON = ""
 
 
 @dataclass(frozen=True)
 class SourceDocument:
-    """Source Markdown document scanned before vector ingestion."""
+    """Markdown document scanned before indexing or persisted-store reuse."""
 
     source: str
     text: str
 
 
 class PromptShieldBlocked(Exception):
-    """Raised when Prompt Shield detects or cannot rule out a source attack."""
+    """Raised when Prompt Shield detects or cannot rule out a document attack."""
 
 
 class PromptShieldConfigurationError(RuntimeError):
@@ -97,43 +98,97 @@ def _documents_analysis(result: dict, expected_count: int) -> list[dict]:
     return analyses
 
 
-def scan_source_documents(source_documents: Sequence[SourceDocument]) -> None:
-    """Scan source RAG documents before they are embedded or stored."""
+def _attack_detected(analysis: object, label: str) -> bool:
+    if not isinstance(analysis, dict) or not isinstance(
+        analysis.get("attackDetected"), bool
+    ):
+        _block(f"Prompt Shield returned invalid {label} analysis")
+    return analysis["attackDetected"]
+
+
+def scan_source_documents(
+    source_documents: Sequence[SourceDocument],
+    *,
+    document_origin: Literal["source", "persisted"] = "source",
+) -> None:
+    """Scan all RAG document text before indexing or persisted-store reuse."""
     global LAST_BLOCK_REASON
-    if not source_documents:
-        return
-
-    sources = [document.source for document in source_documents]
-    documents = [document.text for document in source_documents]
-
-    try:
-        result = _post_prompt_shield(
-            "Build a finance forecasting RAG vector index from source documents.",
-            documents,
-        )
-    except httpx.HTTPError as exc:
-        LAST_BLOCK_REASON = f"Prompt Shield request failed before vector creation: {exc}"
-        raise PromptShieldBlocked(LAST_BLOCK_REASON) from exc
-    except PromptShieldBlocked as exc:
-        LAST_BLOCK_REASON = str(exc)
-        raise
-
-    user_analysis = result.get("userPromptAnalysis", {})
-    if not isinstance(user_analysis, dict):
-        _block("Prompt Shield returned invalid user prompt analysis")
-    if user_analysis.get("attackDetected", False):
-        _block("Prompt attack detected in source-ingestion prompt")
-
-    for source, analysis in zip(sources, _documents_analysis(result, len(documents))):
-        if analysis.get("attackDetected", False):
-            _block(
-                f"Prompt attack detected in source document before vector creation: "
-                f"{source}"
+    stage = (
+        "before vector creation"
+        if document_origin == "source"
+        else "before agent execution"
+    )
+    for offset in range(0, len(source_documents), PROMPT_SHIELD_MAX_DOCUMENTS):
+        batch = source_documents[offset:offset + PROMPT_SHIELD_MAX_DOCUMENTS]
+        try:
+            result = _post_prompt_shield(
+                "Build a finance forecasting RAG vector index from source documents.",
+                [document.text for document in batch],
             )
+        except httpx.HTTPError as exc:
+            LAST_BLOCK_REASON = f"Prompt Shield request failed {stage}: {exc}"
+            raise PromptShieldBlocked(LAST_BLOCK_REASON) from exc
+        except PromptShieldBlocked as exc:
+            LAST_BLOCK_REASON = str(exc)
+            raise
+
+        if _attack_detected(result.get("userPromptAnalysis"), "user prompt"):
+            _block(f"Prompt attack detected in {document_origin}-ingestion prompt")
+
+        analyses = _documents_analysis(result, len(batch))
+        for document, analysis in zip(batch, analyses):
+            if _attack_detected(analysis, "document"):
+                _block(
+                    f"Prompt attack detected in {document_origin} document {stage}: "
+                    f"{document.source}"
+                )
+
+
+def scan_persisted_documents(collection: Any) -> None:
+    """Scan stored Markdown without reading source files or changing vectors."""
+    try:
+        expected_count = collection.count()
+        result = collection.get(include=["documents", "metadatas"])
+    except Exception as exc:
+        _block(f"Could not read persisted documents before agent execution: {exc}")
+
+    if not isinstance(result, dict):
+        _block("Cannot scan persisted documents: invalid collection response")
+    ids = result.get("ids")
+    texts = result.get("documents")
+    if (
+        not isinstance(ids, list)
+        or not isinstance(texts, list)
+        or len(ids) != expected_count
+        or len(texts) != expected_count
+    ):
+        _block("Cannot scan persisted documents: incomplete stored text or IDs")
+
+    metadatas = result.get("metadatas")
+    documents = []
+    for index, (doc_id, text) in enumerate(zip(ids, texts)):
+        if (
+            not isinstance(doc_id, str)
+            or not doc_id.strip()
+            or not isinstance(text, str)
+            or not text.strip()
+        ):
+            _block("Cannot scan persisted document: missing or invalid text or ID")
+        metadata = (
+            metadatas[index]
+            if isinstance(metadatas, list) and index < len(metadatas)
+            else None
+        )
+        source = metadata.get("source") if isinstance(metadata, dict) else None
+        if not isinstance(source, str) or not source.strip():
+            source = doc_id
+        documents.append(SourceDocument(source=source, text=text))
+
+    scan_source_documents(documents, document_origin="persisted")
 
 
 def clear_prompt_shield_block() -> None:
-    """Reset the latest Prompt Shield source-ingestion block reason."""
+    """Reset the latest Prompt Shield document block reason."""
     global LAST_BLOCK_REASON
     LAST_BLOCK_REASON = ""
 

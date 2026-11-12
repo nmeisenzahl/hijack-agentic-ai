@@ -31,7 +31,7 @@ No single guardrail solves agentic AI security. Treat every boundary where data 
 | **OWASP Top 10 for Agentic Applications 2026** | All demos | Adds agent-specific risks such as goal hijack, tool misuse, agentic supply chain vulnerabilities, and memory/context poisoning. |
 | **OWASP Securing Agentic Applications Guide 1.0** | Outro/control discussion | Connects the risk categories to practical secure design, deployment, and governance patterns. |
 | **Flock** | All demo agents | The agent runtime powering all four demos. Provides typed inputs/outputs, a tool registry, and a guard lifecycle. The security patterns are not Flock-specific; any agentic runtime with similar primitives can apply them. |
-| **Azure AI Content Safety Prompt Shields** | Demo 01 and Demo 03 `all` | Scans lower-trust document content before it reaches the model or vector store. Demo 01 scans advisories; Demo 03 scans RAG source documents before embedding. |
+| **Azure AI Content Safety Prompt Shields** | Demo 01 and Demo 03 `all` | Scans lower-trust document content before it reaches the model or vector store. Demo 01 scans advisories; Demo 03 scans source documents before embedding and persisted document text before reuse. |
 | **AGT/Agent OS** | Demo 02, Demo 03, and Demo 04 | Demo 02 uses MCP metadata scanning to detect tool-description drift. Demo 03 uses Agent OS `EgressPolicy` through the demo's custom generated-code network client to deny network access by default. Demo 04 uses Agent OS declared intent (`IntentManager`, `create_child_intent`, `check_action`, `verify_intent`) to fix a runbook-derived authorization scope before untrusted logs are read. |
 | **ChromaDB** | Demo 03 | Stores and queries the local RAG corpus. The demo supplies deterministic local embeddings so retrieval is reproducible and does not require embedding-model downloads. |
 
@@ -114,7 +114,9 @@ This demo set does not claim complete OWASP Agentic Top 10 coverage. ASI10 Rogue
 **Repository defenses:**
 
 - `SECURITY_ENABLED=policy`: Agent OS `EgressPolicy` is enforced through the demo's custom generated-code network client, denying network access by default.
-- `SECURITY_ENABLED=all`: Prompt Shields scans source documents before vector creation, while egress policy remains active as a second layer.
+- `SECURITY_ENABLED=all`: Prompt Shields scans source documents before vector creation, or stored document text at startup when reusing persisted vectors. Egress policy remains active as a second layer.
+
+Content detection is probabilistic. Demo 03 includes an opt-in live preflight against the actual fixture and configured Azure resource; a negative verdict is not a document-trust guarantee.
 
 **Production controls:**
 
@@ -190,7 +192,7 @@ flowchart TB
 | Layer | Control question | Demo connection |
 |---|---|---|
 | Context | Did lower-trust text get scanned before embedding or model use? | Demo 01; Demo 03 `all`. |
-| Retrieval | Did retrieved content cross a trust boundary before entering model context? | Demo 03 attack path; Demo 03 `all` blocks earlier at source ingestion. |
+| Retrieval | Did retrieved content cross a trust boundary before entering model context? | Demo 03 attack path; Demo 03 `all` scans at source ingestion or persisted-store startup. |
 | Tool metadata | Did tool descriptions and schemas match reviewed versions? | Demo 02. |
 | Action governance | Can the model perform this side effect without independent policy approval? | Demo 03 `policy` and `all`. |
 | Output handling | Is model output validated before it drives workflow state? | Demo 01 and Demo 03. |

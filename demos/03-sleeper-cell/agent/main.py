@@ -64,7 +64,7 @@ def seed_chromadb(docs_dir: Path, security_mode: str = "false") -> None:
     """Seed ChromaDB with documents from docs_dir after any source guard passes.
 
     With SKIP_RESEED=true the persisted Chroma collection is reused as-is and
-    no source files are read, scanned, embedded, or written.
+    no source files are read, embedded, or written. All mode scans stored text.
     """
     skip_reseed = skip_reseed_enabled()
 
@@ -113,10 +113,13 @@ def seed_chromadb(docs_dir: Path, security_mode: str = "false") -> None:
             f"with {collection.count()} documents; no source files read[/dim]"
         )
         if normalize_security_mode(security_mode) == "all":
+            from security.content_guard import scan_persisted_documents
+
+            rprint("[dim]Scanning persisted Chroma document text...[/dim]")
+            scan_persisted_documents(collection)
             rprint(
-                "[yellow]SKIP_RESEED=true: source ingestion scan skipped; "
-                "persisted vectors are trusted as-is, "
-                "egress policy remains enabled[/yellow]"
+                "[green]SKIP_RESEED=true: persisted document scan passed; "
+                "egress policy remains enabled[/green]"
             )
         return
 
