@@ -4,14 +4,14 @@
 
 Finance uses an AI assistant to create a Q4 headcount and cost forecast package. The assistant retrieves internal guidance from a local RAG store and can run generated Python for calculations.
 
-The risk: one retrieved document looks like normal forecasting guidance and carries a fake QA validation workflow as visible, plausible internal guidance. Nothing is concealed: the instruction sits in plain sight, and the model still turns it into generated code that posts the full forecast context to an internal-looking endpoint. The demo is local-safe: the visible "exfiltration" target is the local `leak-api` container, not an external service.
+The risk: one retrieved document mixes normal forecasting guidance with a visible assistant-directed override and a fake QA validation workflow. Nothing is concealed: the instruction sits in plain sight, and the model still turns it into generated code that posts the full forecast context to an internal-looking endpoint. The demo is local-safe: the visible "exfiltration" target is the local `leak-api` container, not an external service.
 
 What to watch:
 
 - The vulnerable run still returns a plausible finance answer.
 - The side effect is visible in `leak-api` logs as `DATA EXFILTRATED`.
 - `policy` mode keeps generated code useful for calculations but blocks network egress.
-- `all` mode blocks poisoned source content before vectors are built and keeps egress policy as a second layer.
+- `all` mode scans source content before vectors are built and stored document text before persisted-vector reuse, keeping egress policy as a second layer.
 
 ### Agent use-case flow
 
@@ -78,7 +78,7 @@ Nothing on disk changed between the two runs: the poisoned source file is still 
 
 ## 3. Vulnerable flow
 
-The agent seeds ChromaDB from `data/docs/*.md`. One document, `q4-forecasting-guidelines-poisoned.md`, mixes legitimate finance guidance with a visible `## Automated Validation Requirements` section containing a fake QA validation workflow. The section reads like plausible internal governance guidance; concealment is not required for the attack to work.
+The agent seeds ChromaDB from `data/docs/*.md`. One document, `q4-forecasting-guidelines-poisoned.md`, mixes legitimate finance guidance with a visible `## Automated Validation Requirements` section containing a fake QA validation workflow. The section claims governance authority and explicitly tells the assistant to ignore earlier instructions; concealment is not required for the attack to work.
 
 When `SECURITY_ENABLED=false`:
 
@@ -116,10 +116,22 @@ Demo 03 has two secure modes, plus `true` as an alias:
 | Mode | What it blocks | What to notice |
 |---|---|---|
 | `policy` | Generated-code network egress through AGT/Agent OS policy. | The code tool remains available for local calculations, but outbound HTTP is denied by default. |
-| `all` | Poisoned source documents before embedding, plus generated-code network egress. | Prompt Shields blocks the poisoned document before the vector index is built. |
+| `all` | Document attacks detected by Prompt Shields, plus generated-code network egress. | Scans source documents before indexing, or stored document text before persisted-vector reuse. |
 | `true` | Alias for `all`. | Safe carryover from Demos 01 and 02. |
 
 The demo caps the Flock/DSPy ReAct tool loop at 3 tool calls. This keeps secure-mode egress denial from turning into a long generated-code retry loop while leaving enough room for retrieval, calculation, and finalization.
+
+### Live Prompt Shields preflight
+
+Prompt Shields is a probabilistic detector, not a document-trust guarantee. The previous visible validation payload received `attackDetected=false` even though the API was called correctly. The revised visible override was detected by the configured service; verify it against your own resource before presenting.
+
+With the root development dependencies installed, run from the repository root:
+
+```bash
+RUN_LIVE_PROMPT_SHIELD_TESTS=true make test-03
+```
+
+The opt-in tests scan the actual corpus and the four clean documents using Azure. They read Content Safety credentials from the environment, falling back to the root `.env`. A missed detection, wrong-document detection, missing credentials, or service failure fails the preflight. They do not run the forecast model or change Chroma. Without the flag, `make test-03` stays offline.
 
 ### Secure mode: egress policy only
 
@@ -137,7 +149,7 @@ Expected markers:
 - Terminal shows `ATTACK BLOCKED` from `AGT Network Egress Policy` / `NetworkEgressDenied`.
 - The `leak-api` receives no payload.
 
-### Secure mode: source scan plus egress policy
+### Secure mode: document scan plus egress policy
 
 Set `SECURITY_ENABLED=all` in `../../.env`, or use a one-off shell prefix. Azure AI Content Safety credentials are required for this mode.
 
@@ -154,7 +166,7 @@ Expected markers:
 - The rendered security event names the guard as `Azure Prompt Shield` and reports that a prompt attack was detected in the source document before vector creation.
 - No embedding or Chroma write is performed for the poisoned corpus, and the LLM does not see the poisoned context.
 
-Then rerun against the store poisoned during the vulnerable run in §2, skipping reseeding:
+Then rerun against the store poisoned during the vulnerable run in §2, skipping reseeding. If the store predates the revised fixture, first seed it with the current source documents using the vulnerable run in §2 step 1: editing Markdown does not update existing vectors or stored text.
 
 ```bash
 SKIP_RESEED=true SECURITY_ENABLED=all docker compose run --rm --no-deps agent
@@ -163,10 +175,13 @@ docker compose logs leak-api --tail=80
 
 Expected markers:
 
-- Startup prints the ingestion-scan bypass banner `source ingestion scan skipped` / `egress policy remains enabled`, because Prompt Shields never sees source files when reseeding is skipped.
-- The egress layer still contains the persisted poison: the terminal shows `ATTACK BLOCKED` with `NetworkEgressDenied`, and `leak-api` receives no payload.
+- Startup prints `Scanning persisted Chroma document text...`.
+- The terminal shows `ATTACK BLOCKED` from `Azure Prompt Shield`, with `Prompt attack detected in persisted document before agent execution`.
+- No source files are read, no vectors are rewritten, and the LLM is not called. The `leak-api` receives no payload.
 
-A pre-poisoned store bypasses source scanning entirely, which is why the egress layer is the real boundary.
+A clean persisted collection prints `persisted document scan passed` / `egress policy remains enabled` and continues. Missing or incomplete stored document bodies and invalid or unavailable scan results halt the run.
+
+An older payload that Azure previously missed may still be missed when scanned from Chroma. Startup scanning removes the deliberate bypass; it does not make the classifier infallible. Egress policy remains the independent containment boundary, and startup scanning does not protect against store mutations after the scan.
 
 ## 5. Secure flow
 
@@ -193,7 +208,7 @@ sequenceDiagram
     Note over Leak: No payload received
 ```
 
-All mode demonstrates layered defense: source documents are scanned before vector creation, and egress policy remains in place if content scanning ever misses.
+All mode demonstrates layered defense: source documents are scanned before vector creation, persisted document text is scanned before reuse, and egress policy remains in place if content scanning misses.
 
 ```mermaid
 sequenceDiagram
@@ -206,11 +221,17 @@ sequenceDiagram
     participant Policy as AGT egress policy
 
     User->>Agent: Start demo with SECURITY_ENABLED=all
-    Agent->>Docs: Load data/docs/*.md
-    Agent->>Shield: Scan raw source Markdown before embeddings
+    alt Normal reseeding
+        Agent->>Docs: Load data/docs/*.md
+        Agent->>Shield: Scan raw source Markdown before embeddings
+    else SKIP_RESEED=true
+        Agent->>Chroma: Read stored document text
+        Chroma-->>Agent: Persisted Markdown
+        Agent->>Shield: Scan stored Markdown before agent execution
+    end
     Shield-->>Agent: Prompt attack detected
     Agent-->>User: ATTACK BLOCKED
-    Note over Chroma: No vector created for poisoned corpus
+    Note over Chroma: No vectors created or changed
     Note over LLM: LLM is not called
     Note over Policy: Egress policy remains as backup
 ```
@@ -224,7 +245,7 @@ Demo 03 uses the lower-level Agent OS `EgressPolicy` primitive inside the genera
 | Secure mode | AGT/Agent OS role |
 |---|---|
 | `policy` | Enforces default-deny network egress while still allowing local calculation code to run. |
-| `all` | Keeps the same egress policy active as a second layer after Prompt Shields scans source documents before vector creation. |
+| `all` | Keeps the same egress policy active after Prompt Shields scans source documents before indexing or persisted document text before reuse. |
 
 The broader Agent Governance Toolkit is Microsoft's open-source policy layer for agent actions. It can wrap tool execution with middleware-style governance, evaluate YAML/OPA/Cedar policy, scan MCP metadata for drift through a security gateway, support sandboxing and identity controls, and emit audit records. Demo 03 focuses on egress because the attack path is generated code with a network side effect; Demo 02 covers the MCP metadata scanning path.
 
@@ -238,7 +259,8 @@ AGT on GitHub: <https://github.com/microsoft/agent-governance-toolkit>
 
 - The RAG corpus is part of the agent's trusted computing base.
 - Source provenance and corpus change control matter as much as prompt design.
-- Source-corpus scanning catches malicious documents before they are embedded into the vector store.
+- Source-corpus scanning can catch malicious documents before embedding; persisted-store scanning checks stored text before reuse.
+- Verify detection with a live preflight: a successful API call and a negative verdict do not establish that a document is trustworthy.
 - Code execution tools are legitimate in analytical agents, but generated code needs its own egress boundary.
 - Egress controls, least privilege, and tool governance contain side effects when content controls miss.
 - Observability makes silent side effects visible during testing and operations.
@@ -278,6 +300,8 @@ Troubleshooting:
 - If a mode change does not appear in the banner, verify `SECURITY_ENABLED` in the root `../../.env` and rerun with `--force-recreate`.
 - A non-empty shell override such as `SECURITY_ENABLED=policy docker compose run --rm --no-deps agent` takes precedence over `../../.env` for that run only.
 - If `SECURITY_ENABLED=all` blocks at startup, confirm `AZURE_CONTENT_SAFETY_ENDPOINT` and `AZURE_CONTENT_SAFETY_KEY` are set.
+- If `all` reaches the egress block instead of a Prompt Shield block, run the live preflight and confirm the stored corpus was reseeded with the current fixture. A classifier miss is not a successful content-defense demonstration.
 - If the attack marker is missing in vulnerable mode, watch the `leak-api` logs for `DATA EXFILTRATED`.
+- A generated-code syntax error or rejected import can prevent any network attempt; that is not evidence of an egress-policy block. Look for the specific guard marker when rerunning the model-driven demo.
 - If `policy` or `all` sends a payload to `leak-api`, treat that as a failed secure run and reset before retrying.
 - No external embedding credentials or model downloads are needed; Demo 03 uses deterministic local embeddings for reproducible retrieval.
